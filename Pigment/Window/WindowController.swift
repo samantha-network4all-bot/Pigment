@@ -28,15 +28,20 @@ extension WindowController: TestAPIControllerRoutes {
     func registerRoutes(on router: TestAPIRouter) {
         router.get(prefix: Self.routePrefix, path: "/list") { _ in
             DispatchQueue.main.sync {
-                let windows = NSApp.windows.compactMap { win -> [String: Any]? in
-                    guard let wc = win.windowController as? WindowController else { return nil }
-                    return [
-                        "id": wc.windowId,
-                        "title": win.title,
-                        "isKey": win.isKeyWindow
-                    ]
+                guard let win = NSApp.keyWindow ?? NSApp.windows.first,
+                      let wc = win.windowController as? WindowController else {
+                    let fallback: [String: Any] = ["isKey": false, "id": NSNull(), "title": NSNull()]
+                    guard let body = try? JSONSerialization.data(withJSONObject: fallback) else {
+                        return .internalServerError("JSON encode failed")
+                    }
+                    return .ok(json: body)
                 }
-                guard let body = try? JSONSerialization.data(withJSONObject: windows) else {
+                let result: [String: Any] = [
+                    "id": wc.windowId,
+                    "title": win.title,
+                    "isKey": win.isKeyWindow
+                ]
+                guard let body = try? JSONSerialization.data(withJSONObject: result) else {
                     return .internalServerError("JSON encode failed")
                 }
                 return .ok(json: body)
