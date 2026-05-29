@@ -1,6 +1,6 @@
 import AppKit
 
-final class CanvasController: NSViewController {
+final class CanvasController: NSViewController, CanvasMouseHandler {
 
     let state = CanvasState()
     let canvasView: CanvasView
@@ -20,11 +20,17 @@ final class CanvasController: NSViewController {
         self.view = container
 
         canvasView.bitmap = state.bitmap
+        canvasView.mouseHandler = self
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         TestAPIRouter.shared.register(controller: self)
+    }
+
+    // MARK: - CanvasMouseHandler
+    func handleMouseEvent(kind: CanvasMouseEventKind, point: (Int, Int)) {
+        // Stub: tools will be wired here in a later slice
     }
 }
 
@@ -82,6 +88,77 @@ extension CanvasController: TestAPIControllerRoutes {
 
             let body = try? JSONEncoder().encode(["ok": true])
             return .ok(json: body ?? Data())
+        }
+
+        // GET /canvas/pixel?x=&y=
+        router.get(prefix: Self.routePrefix, path: "/pixel") { [weak self] req in
+            guard let self else { return .notFound(req) }
+            guard let xStr = req.query["x"], let yStr = req.query["y"],
+                  let x = Int(xStr), let y = Int(yStr) else {
+                return .badRequest("query params x and y required")
+            }
+            var result: [String: Any] = [:]
+            DispatchQueue.main.sync {
+                result["x"] = x
+                result["y"] = y
+                if let (r, g, b) = self.state.bitmap.pixelAt(x: x, y: y) {
+                    result["color"] = String(format: "#%02X%02X%02X", r, g, b)
+                } else {
+                    result["color"] = "#000000"
+                }
+            }
+            guard let json = try? JSONSerialization.data(withJSONObject: result) else {
+                return .internalServerError("JSON encode failed")
+            }
+            return .ok(json: json)
+        }
+
+        // POST /canvas/click {"x":10,"y":10,"button":"left"}
+        router.post(prefix: Self.routePrefix, path: "/click") { [weak self] req in
+            guard let self else { return .notFound(req) }
+            struct Body: Decodable { let x: Int; let y: Int; let button: String }
+            guard let b = try? JSONDecoder().decode(Body.self, from: req.body) else {
+                return .badRequest("body must be {\"x\":int,\"y\":int,\"button\":\"left|right\"}")
+            }
+            let color = self.colorFromButton(b.button)
+            DispatchQueue.main.sync {
+                self.state.pushUndo()
+                self.state.bitmap.setPixel(x: b.x, y: b.y, color: color)
+                self.state.dirty = true
+                self.canvasView.needsDisplay = true
+            }
+            let json = try? JSONEncoder().encode(["ok": true])
+            return .ok(json: json ?? Data())
+        }
+
+        // POST /canvas/stroke {"points":[[x,y],...],"button":"left"}
+        router.post(prefix: Self.routePrefix, path: "/stroke") { [weak self] req in
+            guard let self else { return .notFound(req) }
+            struct Body: Decodable { let points: [[Int]]; let button: String }
+            guard let b = try? JSONDecoder().decode(Body.self, from: req.body) else {
+                return .badRequest("body must be {\"points\":[[x,y],...],\"button\":\"left|right\"}")
+            }
+            guard b.points.allSatisfy({ $0.count == 2 }) else {
+                return .badRequest("each point must be [x,y]")
+            }
+            let color = self.colorFromButton(b.button)
+            let pts = b.points.map { ($0[0], $0[1]) }
+            DispatchQueue.main.sync {
+                self.state.pushUndo()
+                self.state.bitmap.drawDottedLine(points: pts, color: color)
+                self.state.dirty = true
+                self.canvasView.needsDisplay = true
+            }
+            let json = try? JSONEncoder().encode(["ok": true])
+            return .ok(json: json ?? Data())
+        }
+    }
+
+    private func colorFromButton(_ button: String) -> (UInt8, UInt8, UInt8) {
+        switch button {
+        case "left":  return (0, 0, 0)       // foreground: black
+        case "right": return (255, 255, 255)   // background: white
+        default:      return (0, 0, 0)
         }
     }
 }

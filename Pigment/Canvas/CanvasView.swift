@@ -1,5 +1,13 @@
 import AppKit
 
+protocol CanvasMouseHandler: AnyObject {
+    func handleMouseEvent(kind: CanvasMouseEventKind, point: (Int, Int))
+}
+
+enum CanvasMouseEventKind {
+    case down, dragged, up
+}
+
 final class CanvasView: NSView {
 
     var bitmap: Bitmap? {
@@ -7,6 +15,8 @@ final class CanvasView: NSView {
             needsDisplay = true
         }
     }
+
+    weak var mouseHandler: CanvasMouseHandler?
 
     override var isFlipped: Bool { true }
 
@@ -35,17 +45,31 @@ final class CanvasView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        // Stub - tools will be implemented later
+        let pt = convertPointToBitmap(event)
+        mouseHandler?.handleMouseEvent(kind: .down, point: pt)
         nextResponder?.mouseDown(with: event)
     }
 
     override func mouseDragged(with event: NSEvent) {
-        // Stub - tools will be implemented later
+        let pt = convertPointToBitmap(event)
+        mouseHandler?.handleMouseEvent(kind: .dragged, point: pt)
         nextResponder?.mouseDragged(with: event)
     }
 
     override func mouseUp(with event: NSEvent) {
-        // Stub - tools will be implemented later
+        let pt = convertPointToBitmap(event)
+        mouseHandler?.handleMouseEvent(kind: .up, point: pt)
         nextResponder?.mouseUp(with: event)
+    }
+
+    // TODO: zoom is hardcoded at 100 for now; replace with zoom controller integration
+    private var zoomFactor: CGFloat { 1.0 }
+
+    private func convertPointToBitmap(_ event: NSEvent) -> (Int, Int) {
+        let viewPoint = convert(event.locationInWindow, from: nil)
+        let scrollOffset = enclosingScrollView?.contentView.bounds.origin ?? .zero
+        let bitmapX = Int((viewPoint.x + scrollOffset.x) / zoomFactor)
+        let bitmapY = Int((viewPoint.y + scrollOffset.y) / zoomFactor)
+        return (bitmapX, bitmapY)
     }
 }
