@@ -102,8 +102,18 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
             tc.activeTool.pointerDragged(&ctx, nsPoint)
         case .up:
             tc.activeTool.pointerUp(&ctx, nsPoint)
-            state.pushUndo()
-            state.dirty = true
+            if case .pickColor(let fg, let r, let g, let b) = ctx.result {
+                let hex = String(format: "#%02X%02X%02X", r, g, b)
+                if fg {
+                    self.colorState?.setForeground(hex)
+                } else {
+                    self.colorState?.setBackground(hex)
+                }
+                self.state.dirty = false
+            } else {
+                state.pushUndo()
+                state.dirty = true
+            }
         }
 
         state.bitmap = ctx.bitmap
@@ -229,6 +239,7 @@ extension CanvasController: TestAPIControllerRoutes {
                     } else {
                         self.colorState?.setBackground(hex)
                     }
+                    self.state.dirty = false
                 } else {
                     self.state.pushUndo()
                     self.state.dirty = true
