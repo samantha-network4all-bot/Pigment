@@ -29,25 +29,17 @@ extension WindowController: TestAPIControllerRoutes {
         router.get(prefix: Self.routePrefix, path: "/list") { _ in
             var response: TestAPIResponse?
             DispatchQueue.main.sync {
-                let allWindows = NSApp.windows
-                let keyWin = allWindows.first(where: { $0.isKeyWindow })
-                let windows = allWindows.compactMap { win -> [String: Any]? in
-                    guard let wc = win.windowController as? WindowController else { return nil }
-                    // Treat as key if it is the key window, or if no window is key
-                    // and this is the first visible one (headless launch scenario)
-                    let isKey: Bool
-                    if let kw = keyWin {
-                        isKey = (win === kw)
-                    } else {
-                        isKey = (win === (allWindows.first { $0.isVisible }))
-                    }
-                    return [
-                        "id": wc.windowId,
-                        "title": win.title,
-                        "isKey": isKey
-                    ]
+                guard let win = TestAPIWindowStore.shared.window(id: nil),
+                      let wc = win.windowController as? WindowController else {
+                    response = .internalServerError("no window")
+                    return
                 }
-                if let body = try? JSONSerialization.data(withJSONObject: windows) {
+                let obj: [String: Any] = [
+                    "id": wc.windowId,
+                    "title": win.title,
+                    "isKey": true
+                ]
+                if let body = try? JSONSerialization.data(withJSONObject: obj) {
                     response = .ok(json: body)
                 } else {
                     response = .internalServerError("JSON encode failed")
