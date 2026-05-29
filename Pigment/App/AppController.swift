@@ -4,6 +4,7 @@ final class AppController: NSObject {
 
     func startTestAPIIfNeeded() {
         guard ProcessInfo.processInfo.environment["PIGMENT_TEST_API"] == "1" else { return }
+        TestAPIRouter.shared.register(controller: self)
         TestAPIServer.shared.start()
     }
 }
