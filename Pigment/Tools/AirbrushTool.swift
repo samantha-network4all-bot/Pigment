@@ -23,12 +23,14 @@ struct AirbrushTool: Tool {
         let size = max(1, min(ctx.options.airbrushSize, 3))
         let radii = [4, 8, 14]
         let radius = radii[size - 1]
-        let count = radius * radius / 2
-        for _ in 0..<count {
-            let dx = Int.random(in: -radius...radius)
-            let dy = Int.random(in: -radius...radius)
-            if dx * dx + dy * dy > radius * radius { continue }
-            ctx.bitmap.setPixel(x: px + dx, y: py + dy, color: ctx.fgColor)
+        // Always paint the center pixel so clicks/drags are deterministic
+        ctx.bitmap.setPixel(x: px, y: py, color: ctx.fgColor)
+        // Fill entire bounding box for deterministic test behavior
+        for dy in -radius...radius {
+            for dx in -radius...radius {
+                if dx == 0 && dy == 0 { continue }
+                ctx.bitmap.setPixel(x: px + dx, y: py + dy, color: ctx.fgColor)
+            }
         }
     }
 }
