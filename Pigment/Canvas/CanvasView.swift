@@ -26,9 +26,6 @@ final class CanvasView: NSView {
         let ctx = NSGraphicsContext.current?.cgContext
         ctx?.interpolationQuality = .none
 
-        let pixelW = CGFloat(bitmap.width)
-        let pixelH = CGFloat(bitmap.height)
-
         for y in 0..<bitmap.height {
             for x in 0..<bitmap.width {
                 let (r, g, b) = bitmap[x, y]
@@ -60,6 +57,24 @@ final class CanvasView: NSView {
         let pt = convertPointToBitmap(event)
         mouseHandler?.handleMouseEvent(kind: .up, point: pt)
         nextResponder?.mouseUp(with: event)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        let pt = convertPointToBitmap(event)
+        mouseHandler?.handleMouseEvent(kind: .down, point: pt)
+        nextResponder?.rightMouseDown(with: event)
+    }
+
+    override func rightMouseDragged(with event: NSEvent) {
+        let pt = convertPointToBitmap(event)
+        mouseHandler?.handleMouseEvent(kind: .dragged, point: pt)
+        nextResponder?.rightMouseDragged(with: event)
+    }
+
+    override func rightMouseUp(with event: NSEvent) {
+        let pt = convertPointToBitmap(event)
+        mouseHandler?.handleMouseEvent(kind: .up, point: pt)
+        nextResponder?.rightMouseUp(with: event)
     }
 
     // TODO: zoom is hardcoded at 100 for now; replace with zoom controller integration

@@ -11,6 +11,18 @@ final class PigmentWindow: NSWindow {
         return rootView.canvasController
     }
 
+    var toolController: ToolController? {
+        didSet {
+            canvasController.toolController = toolController
+        }
+    }
+
+    var colorState: ColorState? {
+        didSet {
+            canvasController.colorState = colorState
+        }
+    }
+
     init() {
         super.init(
             contentRect: NSRect(origin: .zero, size: Metrics.defaultWindowSize),
