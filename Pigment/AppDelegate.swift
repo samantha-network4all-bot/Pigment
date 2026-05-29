@@ -4,8 +4,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let appController = AppController()
     private let windowController = WindowController()
+    private let menuController = MenuController()
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        MenuBuilder.build()
+        _ = menuController // instantiate to register routes
         appController.startTestAPIIfNeeded()
         windowController.showWindow(nil)
     }

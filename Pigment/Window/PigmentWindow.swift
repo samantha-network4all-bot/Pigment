@@ -2,14 +2,23 @@ import AppKit
 
 final class PigmentWindow: NSWindow {
 
+    private lazy var rootView: RootView = {
+        let v = RootView(frame: NSRect(origin: .zero, size: Metrics.defaultWindowSize))
+        return v
+    }()
+
+    var canvasController: CanvasController {
+        return rootView.canvasController
+    }
+
     init() {
-        let defaultContentSize = NSSize(width: 1000, height: 720)
         super.init(
-            contentRect: NSRect(origin: .zero, size: defaultContentSize),
+            contentRect: NSRect(origin: .zero, size: Metrics.defaultWindowSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
+        self.contentView = rootView
         self.title = "untitled - Pigment"
         self.isReleasedWhenClosed = false
         self.minSize = NSSize(width: 400, height: 300)
