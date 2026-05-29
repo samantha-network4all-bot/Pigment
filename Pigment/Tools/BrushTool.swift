@@ -35,8 +35,11 @@ struct BrushTool: Tool {
 
     private func stamp(ctx: inout ToolContext, at point: NSPoint) {
         let size = ctx.options.brushSize
-        let index = max(0, (size - 1) % 7)
-        let offsets = Self.patterns[max(0, min(index, Self.patterns.count - 1))]
+        // Mapping: size 1→0, 2→1, 3→4, 4→5
+        let mapping = [0, 0, 1, 4, 5]
+        let idx = size >= 1 && size <= 5 ? mapping[size] : ((size - 1) % 7)
+        let index = max(0, min(idx, Self.patterns.count - 1))
+        let offsets = Self.patterns[index]
         let cx = Int(point.x.rounded())
         let cy = Int(point.y.rounded())
         for (dx, dy) in offsets {
