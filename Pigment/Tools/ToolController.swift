@@ -15,10 +15,11 @@ final class ToolController: NSViewController {
         // Create all 16 tools
         var tools: [String: Tool] = [:]
         tools["pencil"] = PencilTool()
+        tools["line"] = LineTool()
         let stubIds = [
             "freeform-select", "select", "eraser", "fill",
             "pick-color", "magnifier", "brush", "airbrush",
-            "text", "line", "curve", "rectangle",
+            "text", "curve", "rectangle",
             "polygon", "ellipse", "rounded-rectangle"
         ]
         for sid in stubIds {
