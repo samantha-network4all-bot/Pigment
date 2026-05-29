@@ -28,35 +28,35 @@ extension AppController: TestAPIControllerRoutes {
                 return .notFound(req)
             }
 
-            guard let win = TestAPIWindowStore.shared.window(id: windowId) else {
-                return .notFound(req)
-            }
-
+            var response: TestAPIResponse?
             DispatchQueue.main.sync {
-                win.displayIfNeeded()
-            }
-
-            guard let view = win.contentView else {
-                return .internalServerError("no contentView")
-            }
-
-            var captureRect = view.bounds
-            if let frameStr = req.query["frame"] {
-                let parts = frameStr.split(separator: ",").compactMap { Int($0) }
-                if parts.count == 4 {
-                    captureRect = NSRect(x: parts[0], y: parts[1], width: parts[2], height: parts[3])
+                guard let win = TestAPIWindowStore.shared.window(id: windowId) else {
+                    response = .notFound(req)
+                    return
                 }
-            }
 
-            guard let rep = view.bitmapImageRepForCachingDisplay(in: captureRect) else {
-                return .internalServerError("bitmapImageRep failed")
-            }
-            view.cacheDisplay(in: captureRect, to: rep)
-            guard let png = rep.representation(using: .png, properties: [:]) else {
-                return .internalServerError("png encoding failed")
-            }
+                win.displayIfNeeded()
 
-            return .ok(data: png, contentType: "image/png")
+                guard let view = win.contentView else {
+                    response = .internalServerError("no contentView")
+                    return
+                }
+
+                let captureRect = view.bounds
+
+                guard let rep = view.bitmapImageRepForCachingDisplay(in: captureRect) else {
+                    response = .internalServerError("bitmapImageRep failed")
+                    return
+                }
+                view.cacheDisplay(in: captureRect, to: rep)
+                guard let png = rep.representation(using: .png, properties: [:]) else {
+                    response = .internalServerError("png encoding failed")
+                    return
+                }
+
+                response = .ok(data: png, contentType: "image/png")
+            }
+            return response ?? .internalServerError("no response")
         }
 
         router.post(path: "/shutdown") { _ in
