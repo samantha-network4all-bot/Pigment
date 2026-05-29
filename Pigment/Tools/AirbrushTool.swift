@@ -18,36 +18,38 @@ struct AirbrushTool: Tool {
     }
 
     private func spray(ctx: inout ToolContext, center: NSPoint) {
+        let ix = Int(center.x.rounded())
+        let iy = Int(center.y.rounded())
         let size = ctx.options.airbrushSize
-        let radius: Double
+
+        let radius: Int
         let count: Int
         switch size {
         case 1:
-            radius = 4.0; count = 800
+            radius = 4
+            count = 12
         case 2:
-            radius = 8.0; count = 2400
+            radius = 8
+            count = 30
         case 3:
-            radius = 12.0; count = 6400
+            radius = 12
+            count = 60
         default:
-            radius = 4.0; count = 800
+            radius = 4
+            count = 12
         }
 
-        let ix = Int(center.x.rounded())
-        let iy = Int(center.y.rounded())
-        let r2 = radius * radius
-        var painted = 0
+        var sprayed = 0
+        let maxAttempts = count * 10 // safety bound
         var attempts = 0
-        let maxAttempts = count * 50
 
-        while painted < count && attempts < maxAttempts {
+        while sprayed < count && attempts < maxAttempts {
             attempts += 1
-            let dx = Int.random(in: Int(-radius - 1)...Int(radius + 1))
-            let dy = Int.random(in: Int(-radius - 1)...Int(radius + 1))
-            let fdx = Double(dx)
-            let fdy = Double(dy)
-            if fdx * fdx + fdy * fdy <= r2 {
+            let dx = Int.random(in: -radius...radius)
+            let dy = Int.random(in: -radius...radius)
+            if dx * dx + dy * dy <= radius * radius {
                 ctx.bitmap.setPixel(x: ix + dx, y: iy + dy, color: ctx.fgColor)
-                painted += 1
+                sprayed += 1
             }
         }
     }
