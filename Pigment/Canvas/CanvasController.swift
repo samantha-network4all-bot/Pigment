@@ -271,13 +271,15 @@ extension CanvasController: TestAPIControllerRoutes {
             let pts = b.points.map { NSPoint(x: CGFloat($0[0]), y: CGFloat($0[1])) }
 
             let effectiveFg = b.button == "right" ? self.bgColor() : self.fgColor()
+            let toolButton: ToolButton = b.button == "right" ? .secondary : .primary
 
             DispatchQueue.main.sync {
                 var ctx = ToolContext(
                     bitmap: self.state.bitmap,
                     fgColor: effectiveFg,
                     bgColor: self.bgColor(),
-                    options: tc.options
+                    options: tc.options,
+                    button: toolButton
                 )
 
                 // pointerDown on first point
