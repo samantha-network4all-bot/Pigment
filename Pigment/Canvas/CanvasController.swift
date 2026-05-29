@@ -87,7 +87,6 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
     func handleMouseEvent(kind: CanvasMouseEventKind, point: (Int, Int)) {
         guard let tc = toolController else { return }
         let nsPoint = NSPoint(x: CGFloat(point.0), y: CGFloat(point.1))
-        let color = colorFromButton("left") // primary for mouse; button determined by event
 
         var ctx = ToolContext(
             bitmap: state.bitmap,
@@ -208,19 +207,33 @@ extension CanvasController: TestAPIControllerRoutes {
 
             // Determine effective fg color based on button (primary=fg, secondary=bg)
             let effectiveFg = b.button == "right" ? self.bgColor() : self.fgColor()
+            let toolButton: ToolButton = b.button == "right" ? .secondary : .primary
 
             DispatchQueue.main.sync {
                 var ctx = ToolContext(
                     bitmap: self.state.bitmap,
                     fgColor: effectiveFg,
                     bgColor: self.bgColor(),
-                    options: tc.options
+                    options: tc.options,
+                    button: toolButton
                 )
                 tc.activeTool.pointerDown(&ctx, nsPoint)
                 tc.activeTool.pointerUp(&ctx, nsPoint)
                 self.state.bitmap = ctx.bitmap
-                self.state.pushUndo()
-                self.state.dirty = true
+
+                // Handle pick-color result
+                if case .pickColor(let fg, let r, let g, let b) = ctx.result {
+                    let hex = String(format: "#%02X%02X%02X", r, g, b)
+                    if fg {
+                        self.colorState?.setForeground(hex)
+                    } else {
+                        self.colorState?.setBackground(hex)
+                    }
+                } else {
+                    self.state.pushUndo()
+                    self.state.dirty = true
+                }
+
                 self.canvasView.bitmap = self.state.bitmap
                 self.canvasView.needsDisplay = true
             }
