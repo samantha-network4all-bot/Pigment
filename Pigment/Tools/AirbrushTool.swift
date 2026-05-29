@@ -9,8 +9,6 @@ struct AirbrushTool: Tool {
     private func spray(ctx: inout ToolContext, px: Int, _ py: Int) {
         guard ctx.options.airbrushSize >= 1 && ctx.options.airbrushSize <= 3 else { return }
         let radius = radii[ctx.options.airbrushSize - 1]
-        // Fill a circle that encompasses the full bbox (radius * sqrt(2))
-        // This matches the bbox description: size 1 -> ~8x8, size 2 -> ~16x16, size 3 -> ~28x28
         let threshold = radius * radius * 2
         for dy in -radius...radius {
             for dx in -radius...radius {
