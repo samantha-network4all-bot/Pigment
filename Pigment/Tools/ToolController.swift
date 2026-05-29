@@ -17,7 +17,7 @@ final class ToolController: NSViewController {
         tools["pencil"] = PencilTool()
         tools["line"] = LineTool()
         let stubIds = [
-            "freeform-select", "select", "eraser", "fill",
+            "freeform-select", "select", "eraser",
             "pick-color", "magnifier", "brush", "airbrush",
             "text", "curve", "rectangle",
             "polygon", "ellipse", "rounded-rectangle"
@@ -25,6 +25,7 @@ final class ToolController: NSViewController {
         for sid in stubIds {
             tools[sid] = StubTool(toolId: sid)
         }
+        tools["fill"] = FillTool()
         self.allTools = tools
         self._activeTool = tools["pencil"]!
 

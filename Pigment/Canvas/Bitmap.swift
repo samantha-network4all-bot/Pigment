@@ -85,4 +85,31 @@ struct Bitmap {
                      color: color)
         }
     }
+
+    mutating func floodFill(x: Int, y: Int, targetColor: (UInt8, UInt8, UInt8), fillColor: (UInt8, UInt8, UInt8)) {
+        guard x >= 0 && x < width && y >= 0 && y < height else { return }
+        guard targetColor.0 != fillColor.0 || targetColor.1 != fillColor.1 || targetColor.2 != fillColor.2 else { return }
+        guard self[x, y].r == targetColor.0 && self[x, y].g == targetColor.1 && self[x, y].b == targetColor.2 else { return }
+
+        var stack: [(Int, Int)] = [(x, y)]
+        var visited = [Bool](repeating: false, count: width * height)
+
+        while !stack.isEmpty {
+            let (cx, cy) = stack.removeLast()
+            guard cx >= 0 && cx < width && cy >= 0 && cy < height else { continue }
+            let idx = cy * width + cx
+            if visited[idx] { continue }
+            visited[idx] = true
+
+            let pixel = self[cx, cy]
+            guard pixel.r == targetColor.0 && pixel.g == targetColor.1 && pixel.b == targetColor.2 else { continue }
+
+            self[cx, cy] = fillColor
+
+            stack.append((cx + 1, cy))
+            stack.append((cx - 1, cy))
+            stack.append((cx, cy + 1))
+            stack.append((cx, cy - 1))
+        }
+    }
 }
