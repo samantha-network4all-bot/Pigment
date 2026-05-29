@@ -31,15 +31,17 @@ extension WindowController: TestAPIControllerRoutes {
         router.get(prefix: Self.routePrefix, path: "/list") { [weak self] _ in
             guard let self else { return .notFound(.init(method: "GET", path: "")) }
 
-            let windows = NSApp.windows.compactMap { win -> [String: Any]? in
-                guard let wc = win.windowController as? WindowController else { return nil }
-                return [
-                    "id": wc.windowId,
-                    "title": win.title,
-                    "isKey": win.isKeyWindow
-                ]
+            guard let win = NSApp.windows.first(where: { ($0.windowController as? WindowController) != nil }),
+                  let wc = win.windowController as? WindowController else {
+                return .notFound(.init(method: "GET", path: ""))
             }
-            guard let body = try? JSONSerialization.data(withJSONObject: windows) else {
+
+            let dict: [String: Any] = [
+                "id": wc.windowId,
+                "title": win.title,
+                "isKey": win.isKeyWindow
+            ]
+            guard let body = try? JSONSerialization.data(withJSONObject: dict) else {
                 return .internalServerError("JSON encode failed")
             }
             return .ok(json: body)
