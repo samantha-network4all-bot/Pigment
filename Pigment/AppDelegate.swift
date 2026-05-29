@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = cc.view // force viewDidLoad to register routes
         colorController = cc
 
+        // Force-load tool controller so its viewDidLoad fires and registers routes
+        _ = toolController.view
         windowController.showWindow(nil)
 
         // Wire tool controller and color state into the window's canvas
