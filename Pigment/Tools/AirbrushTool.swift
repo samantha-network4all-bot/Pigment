@@ -9,10 +9,12 @@ struct AirbrushTool: Tool {
     private func spray(ctx: inout ToolContext, px: Int, _ py: Int) {
         guard ctx.options.airbrushSize >= 1 && ctx.options.airbrushSize <= 3 else { return }
         let radius = radii[ctx.options.airbrushSize - 1]
-        // Fill every pixel in the spray area for reliable coverage
+        // Fill a circle that encompasses the full bbox (radius * sqrt(2))
+        // This matches the bbox description: size 1 -> ~8x8, size 2 -> ~16x16, size 3 -> ~28x28
+        let threshold = radius * radius * 2
         for dy in -radius...radius {
             for dx in -radius...radius {
-                if dx * dx + dy * dy > radius * radius * 2 { continue }
+                if dx * dx + dy * dy > threshold { continue }
                 ctx.bitmap.setPixel(x: px + dx, y: py + dy, color: ctx.fgColor)
             }
         }
