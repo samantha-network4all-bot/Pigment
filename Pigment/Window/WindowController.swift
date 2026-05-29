@@ -27,25 +27,33 @@ extension WindowController: TestAPIControllerRoutes {
 
     func registerRoutes(on router: TestAPIRouter) {
         router.get(prefix: Self.routePrefix, path: "/list") { _ in
+            var response: TestAPIResponse?
             DispatchQueue.main.sync {
-                guard let win = NSApp.keyWindow ?? NSApp.windows.first,
-                      let wc = win.windowController as? WindowController else {
-                    let fallback: [String: Any] = ["isKey": false, "id": NSNull(), "title": NSNull()]
-                    guard let body = try? JSONSerialization.data(withJSONObject: fallback) else {
-                        return .internalServerError("JSON encode failed")
+                let allWindows = NSApp.windows
+                let keyWin = allWindows.first(where: { $0.isKeyWindow })
+                let windows = allWindows.compactMap { win -> [String: Any]? in
+                    guard let wc = win.windowController as? WindowController else { return nil }
+                    // Treat as key if it is the key window, or if no window is key
+                    // and this is the first visible one (headless launch scenario)
+                    let isKey: Bool
+                    if let kw = keyWin {
+                        isKey = (win === kw)
+                    } else {
+                        isKey = (win === (allWindows.first { $0.isVisible }))
                     }
-                    return .ok(json: body)
+                    return [
+                        "id": wc.windowId,
+                        "title": win.title,
+                        "isKey": isKey
+                    ]
                 }
-                let result: [String: Any] = [
-                    "id": wc.windowId,
-                    "title": win.title,
-                    "isKey": win.isKeyWindow
-                ]
-                guard let body = try? JSONSerialization.data(withJSONObject: result) else {
-                    return .internalServerError("JSON encode failed")
+                if let body = try? JSONSerialization.data(withJSONObject: windows) {
+                    response = .ok(json: body)
+                } else {
+                    response = .internalServerError("JSON encode failed")
                 }
-                return .ok(json: body)
             }
+            return response ?? .internalServerError("no response")
         }
     }
 }
