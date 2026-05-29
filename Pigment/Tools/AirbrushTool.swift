@@ -23,13 +23,13 @@ struct AirbrushTool: Tool {
         let count: Int
         switch size {
         case 1:
-            radius = 4.0; count = 12
+            radius = 4.0; count = 800
         case 2:
-            radius = 8.0; count = 30
+            radius = 8.0; count = 2400
         case 3:
-            radius = 12.0; count = 60
+            radius = 12.0; count = 6400
         default:
-            radius = 4.0; count = 12
+            radius = 4.0; count = 800
         }
 
         let ix = Int(center.x.rounded())
@@ -37,7 +37,7 @@ struct AirbrushTool: Tool {
         let r2 = radius * radius
         var painted = 0
         var attempts = 0
-        let maxAttempts = count * 20
+        let maxAttempts = count * 50
 
         while painted < count && attempts < maxAttempts {
             attempts += 1
