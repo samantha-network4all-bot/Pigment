@@ -16,8 +16,9 @@ final class ToolController: NSViewController {
         var tools: [String: Tool] = [:]
         tools["pencil"] = PencilTool()
         tools["line"] = LineTool()
+        tools["eraser"] = EraserTool()
         let stubIds = [
-            "freeform-select", "select", "eraser",
+            "freeform-select", "select",
             "pick-color", "magnifier", "brush", "airbrush",
             "text", "curve", "rectangle",
             "polygon", "ellipse", "rounded-rectangle"
