@@ -20,12 +20,13 @@ final class ToolController: NSViewController {
         let stubIds = [
             "freeform-select", "select",
             "magnifier",
-            "text", "curve", "rectangle",
+            "text", "curve",
             "polygon", "ellipse", "rounded-rectangle"
         ]
         for sid in stubIds {
             tools[sid] = StubTool(toolId: sid)
         }
+        tools["rectangle"] = RectangleTool()
         tools["brush"] = BrushTool()
         tools["airbrush"] = AirbrushTool()
         tools["fill"] = FillTool()
