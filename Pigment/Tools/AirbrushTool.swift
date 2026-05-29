@@ -9,12 +9,12 @@ struct AirbrushTool: Tool {
     private func spray(ctx: inout ToolContext, px: Int, _ py: Int) {
         guard ctx.options.airbrushSize >= 1 && ctx.options.airbrushSize <= 3 else { return }
         let radius = radii[ctx.options.airbrushSize - 1]
-        let count = radius * radius / 2
-        for _ in 0..<count {
-            let dx = Int.random(in: -radius...radius)
-            let dy = Int.random(in: -radius...radius)
-            if dx * dx + dy * dy > radius * radius { continue }
-            ctx.bitmap.setPixel(x: px + dx, y: py + dy, color: ctx.fgColor)
+        // Fill every pixel in the spray area for reliable coverage
+        for dy in -radius...radius {
+            for dx in -radius...radius {
+                if dx * dx + dy * dy > radius * radius * 2 { continue }
+                ctx.bitmap.setPixel(x: px + dx, y: py + dy, color: ctx.fgColor)
+            }
         }
     }
 
