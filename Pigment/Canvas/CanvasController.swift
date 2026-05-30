@@ -110,6 +110,10 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
                     self.colorState?.setBackground(hex)
                 }
                 self.state.dirty = false
+            } else if case .zoom(let percent) = ctx.result {
+                self.state.zoom = percent
+                self.toolController?.options.magnifierZoom = percent
+                self.state.dirty = false
             } else {
                 state.pushUndo()
                 state.dirty = true
@@ -243,6 +247,10 @@ extension CanvasController: TestAPIControllerRoutes {
                         self.colorState?.setBackground(hex)
                     }
                     self.state.dirty = false
+                } else if case .zoom(let percent) = ctx.result {
+                    self.state.zoom = percent
+                    self.toolController?.options.magnifierZoom = percent
+                    self.state.dirty = false
                 } else {
                     self.state.pushUndo()
                     self.state.dirty = true
@@ -303,9 +311,16 @@ extension CanvasController: TestAPIControllerRoutes {
                 tc.activeTool.pointerUp(&ctx, pts.last!)
 
                 self.state.bitmap = ctx.bitmap
-                self.state.pushUndo()
-                self.state.dirty = true
+                if case .zoom(let percent) = ctx.result {
+                    self.state.zoom = percent
+                    self.toolController?.options.magnifierZoom = percent
+                    self.state.dirty = false
+                } else {
+                    self.state.pushUndo()
+                    self.state.dirty = true
+                }
                 self.canvasView.bitmap = self.state.bitmap
+                self.canvasView.zoom = self.state.zoom
                 self.canvasView.needsDisplay = true
             }
 

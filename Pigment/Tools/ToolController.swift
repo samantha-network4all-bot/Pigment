@@ -19,7 +19,6 @@ final class ToolController: NSViewController {
         tools["eraser"] = EraserTool()
         let stubIds = [
             "freeform-select", "select",
-            "magnifier",
             "text", "curve",
             "polygon", "rounded-rectangle"
         ]
@@ -32,6 +31,7 @@ final class ToolController: NSViewController {
         tools["airbrush"] = AirbrushTool()
         tools["fill"] = FillTool()
         tools["pick-color"] = PickColorTool()
+        tools["magnifier"] = MagnifierTool()
         self.allTools = tools
         self._activeTool = tools["pencil"]!
 

@@ -8,4 +8,5 @@ struct ToolOptions: Codable {
     var fillMode: String = "outlineFill"
     var transparentSelection: Bool = false
     var textStyle: String = ""
+    var magnifierZoom: Int = 100
 }

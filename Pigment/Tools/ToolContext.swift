@@ -4,6 +4,7 @@ enum ToolButton { case primary, secondary }
 
 enum ToolResult {
     case pickColor(fg: Bool, r: UInt8, g: UInt8, b: UInt8)
+    case zoom(Int)
 }
 
 struct ToolContext {

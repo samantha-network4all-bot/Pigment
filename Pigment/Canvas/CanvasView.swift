@@ -15,6 +15,7 @@ final class CanvasView: NSView {
             needsDisplay = true
         }
     }
+    var zoom: Int = 100
 
     weak var mouseHandler: CanvasMouseHandler?
 
@@ -38,6 +39,24 @@ final class CanvasView: NSView {
                 let rect = NSRect(x: CGFloat(x), y: CGFloat(y), width: 1, height: 1)
                 rect.fill()
             }
+        }
+
+        // Grid overlay at zoom >= 400%
+        if zoom >= 400 {
+            NSColor(white: 0.5, alpha: 0.5).setStroke()
+            let gridPath = NSBezierPath()
+            gridPath.lineWidth = 0.5
+            for x in 0...bitmap.width {
+                let px = CGFloat(x)
+                gridPath.move(to: NSPoint(x: px, y: 0))
+                gridPath.line(to: NSPoint(x: px, y: CGFloat(bitmap.height)))
+            }
+            for y in 0...bitmap.height {
+                let py = CGFloat(y)
+                gridPath.move(to: NSPoint(x: 0, y: py))
+                gridPath.line(to: NSPoint(x: CGFloat(bitmap.width), y: py))
+            }
+            gridPath.stroke()
         }
     }
 
