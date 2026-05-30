@@ -57,7 +57,7 @@ extension MenuController: TestAPIControllerRoutes {
         var items = currentMenu?.items ?? []
 
         for (index, title) in path.enumerated() {
-            guard let match = items.first(where: { $0.title == title }) else { return nil }
+            guard let match = items.first(where: { $0.title == title || $0.submenu?.title == title }) else { return nil }
 
             if index == path.count - 1 {
                 return match
