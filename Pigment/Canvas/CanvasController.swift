@@ -30,6 +30,24 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
         TestAPIRouter.shared.register(controller: self)
     }
 
+    func performUndo() {
+        DispatchQueue.main.sync {
+            if state.undo() {
+                canvasView.bitmap = state.bitmap
+                canvasView.needsDisplay = true
+            }
+        }
+    }
+
+    func performRedo() {
+        DispatchQueue.main.sync {
+            if state.redo() {
+                canvasView.bitmap = state.bitmap
+                canvasView.needsDisplay = true
+            }
+        }
+    }
+
     // MARK: - Helpers
     private func fgColor() -> (UInt8, UInt8, UInt8) {
         if let cs = colorState {
