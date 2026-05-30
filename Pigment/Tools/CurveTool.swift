@@ -7,137 +7,94 @@ final class CurveTool: Tool {
     private var start: (Int, Int)?
     private var bend1: (Int, Int)?
     private var bend2: (Int, Int)?
-    private var endpoint: (Int, Int)?
 
     func pointerDown(_ ctx: inout ToolContext, _ point: NSPoint) {
         start = (Int(point.x.rounded()), Int(point.y.rounded()))
         bend1 = nil
         bend2 = nil
-        endpoint = nil
     }
 
     func pointerDragged(_ ctx: inout ToolContext, _ point: NSPoint) {
         guard let _ = start else { return }
         let pt = (Int(point.x.rounded()), Int(point.y.rounded()))
-
         if bend1 == nil {
             bend1 = pt
         } else if bend2 == nil {
             bend2 = pt
-            // First drag after bend2 set: use current point as initial endpoint
-            endpoint = pt
-            drawCurve(&ctx)
-        } else {
-            // Update endpoint live (don't modify bend2)
-            endpoint = pt
-            drawCurve(&ctx)
         }
+        drawCurve(&ctx, current: pt)
     }
 
     func pointerUp(_ ctx: inout ToolContext, _ point: NSPoint) {
-        guard let _ = start, let _ = bend1, let _ = bend2, let _ = endpoint else {
-            // Not all points set yet: no-op (waiting for more drags)
+        guard let _ = start, let _ = bend1, let _ = bend2 else {
             return
         }
         let pt = (Int(point.x.rounded()), Int(point.y.rounded()))
-        // Commit the curve with the final endpoint
-        endpoint = pt
-        drawCurve(&ctx)
+        drawCurve(&ctx, current: pt)
         start = nil
         bend1 = nil
         bend2 = nil
-        endpoint = nil
     }
 
-    private func drawCurve(_ ctx: inout ToolContext) {
+    private func drawCurve(_ ctx: inout ToolContext, current: (Int, Int)) {
         guard let (x0, y0) = start,
               let (x1, y1) = bend1,
-              let (x2, y2) = bend2,
-              let (x3, y3) = endpoint else { return }
+              let (x2, y2) = bend2 else { return }
 
-        // Cubic Bézier: P0=start, P1=bend1, P2=bend2, P3=endpoint
-        let p0 = (Double(x0), Double(y0))
-        let p1 = (Double(x1), Double(y1))
-        let p2 = (Double(x2), Double(y2))
-        let p3 = (Double(x3), Double(y3))
+        let x3 = current.0
+        let y3 = current.1
+
+        // Cubic Bézier: P0=start, P1=bend1, P2=bend2, P3=current
+        let p0x = Double(x0), p0y = Double(y0)
+        let p1x = Double(x1), p1y = Double(y1)
+        let p2x = Double(x2), p2y = Double(y2)
+        let p3x = Double(x3), p3y = Double(y3)
 
         let color = ctx.fgColor
         let lw = ctx.options.lineWidth
+        let steps = 200
 
-        // Generate parametric points with step 0.01
-        var points: [(Int, Int)] = []
-        var t: Double = 0.0
-        while t <= 1.0 {
+        var prev = (x0, y0)
+        for i in 1...steps {
+            let t = Double(i) / Double(steps)
             let u = 1.0 - t
             let tt = t * t
             let uu = u * u
             let uuu = uu * u
             let ttt = tt * t
 
-            let px = uuu * p0.0 + 3.0 * uu * t * p1.0 + 3.0 * u * tt * p2.0 + ttt * p3.0
-            let py = uuu * p0.1 + 3.0 * uu * t * p1.1 + 3.0 * u * tt * p2.1 + ttt * p3.1
+            let px = uuu * p0x + 3.0 * uu * t * p1x + 3.0 * u * tt * p2x + ttt * p3x
+            let py = uuu * p0y + 3.0 * uu * t * p1y + 3.0 * u * tt * p2y + ttt * p3y
+            let curr = (Int(px.rounded()), Int(py.rounded()))
 
-            points.append((Int(px.rounded()), Int(py.rounded())))
-            t += 0.01
-        }
-
-        // Draw line between consecutive parametric points
-        if lw <= 1 {
-            for i in 0..<(points.count - 1) {
-                ctx.bitmap.drawLine(
-                    x0: points[i].0, y0: points[i].1,
-                    x1: points[i + 1].0, y1: points[i + 1].1,
-                    color: color
-                )
-            }
-        } else {
-            // For lineWidth > 1, draw the curve at width-1 offset
-            // Use perpendicular offset approach (same as LineTool)
-            guard points.count >= 2 else {
-                if let p = points.first {
-                    let half = lw / 2
-                    for dy in -half..<(lw - half) {
-                        for dx in -half..<(lw - half) {
-                            ctx.bitmap.setPixel(x: p.0 + dx, y: p.1 + dy, color: color)
-                        }
-                    }
-                }
-                return
-            }
-
-            // Draw thick curve: for each segment between parametric points,
-            // compute perpendicular and draw offset lines
-            for i in 0..<(points.count - 1) {
-                let sx = points[i].0
-                let sy = points[i].1
-                let ex = points[i + 1].0
-                let ey = points[i + 1].1
-                let dx = ex - sx
-                let dy = ey - sy
+            if lw <= 1 {
+                ctx.bitmap.drawLine(x0: prev.0, y0: prev.1, x1: curr.0, y1: curr.1, color: color)
+            } else {
+                let dx = curr.0 - prev.0
+                let dy = curr.1 - prev.1
                 let len = Double(dx * dx + dy * dy).squareRoot()
                 if len < 1 {
                     let half = lw / 2
                     for ody in -half..<(lw - half) {
                         for odx in -half..<(lw - half) {
-                            ctx.bitmap.setPixel(x: sx + odx, y: sy + ody, color: color)
+                            ctx.bitmap.setPixel(x: prev.0 + odx, y: prev.1 + ody, color: color)
                         }
                     }
-                    continue
-                }
-                let nx = -Double(dy) / len
-                let ny = Double(dx) / len
-                let half = Double(lw - 1) / 2.0
-                for j in 0..<lw {
-                    let offset = Double(j) - half
-                    let ox = Int((nx * offset).rounded())
-                    let oy = Int((ny * offset).rounded())
-                    ctx.bitmap.drawLine(
-                        x0: sx + ox, y0: sy + oy,
-                        x1: ex + ox, y1: ey + oy,
-                        color: color
-                    )
+                } else {
+                    let nx = -Double(dy) / len
+                    let ny = Double(dx) / len
+                    let half = Double(lw - 1) / 2.0
+                    for j in 0..<lw {
+                        let offset = Double(j) - half
+                        let ox = Int((nx * offset).rounded())
+                        let oy = Int((ny * offset).rounded())
+                        ctx.bitmap.drawLine(x0: prev.0 + ox, y0: prev.1 + oy,
+                                           x1: curr.0 + ox, y1: curr.1 + oy,
+                                           color: color)
+                    }
                 }
             }
+            prev = curr
         }
     }
 }
