@@ -226,6 +226,12 @@ final class RoundedRectangleTool: Tool {
         drawQuarterCircle(ctx: &ctx, cx: x0 + effectiveR, cy: y1 - effectiveR, r: effectiveR, quadrant: .bottomLeft, color: color)
         // Bottom-right: center (x1-r, y1-r), arc from right to bottom
         drawQuarterCircle(ctx: &ctx, cx: x1 - effectiveR, cy: y1 - effectiveR, r: effectiveR, quadrant: .bottomRight, color: color)
+
+        // Ensure bounding box corner pixels are drawn
+        ctx.bitmap.setPixel(x: x0, y: y0, color: color)
+        ctx.bitmap.setPixel(x: x1, y: y0, color: color)
+        ctx.bitmap.setPixel(x: x0, y: y1, color: color)
+        ctx.bitmap.setPixel(x: x1, y: y1, color: color)
     }
 
     private enum Quadrant { case topLeft, topRight, bottomLeft, bottomRight }
