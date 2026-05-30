@@ -26,27 +26,32 @@ extension MenuController: TestAPIControllerRoutes {
                 return .badRequest("body must be {\"path\":[\"Menu Item\",\"Sub Item\"]}")
             }
 
-            let menu = NSApp.mainMenu
-            guard let item = MenuController.findMenuItem(in: menu, path: b.path) else {
-                return .notFound(req)
-            }
+            var response: TestAPIResponse?
+            DispatchQueue.main.sync {
+                let menu = NSApp.mainMenu
+                guard let item = MenuController.findMenuItem(in: menu, path: b.path) else {
+                    response = .notFound(req)
+                    return
+                }
 
-            guard !item.isSeparatorItem else {
-                return .conflict("separator")
-            }
+                guard !item.isSeparatorItem else {
+                    response = .conflict("separator")
+                    return
+                }
 
-            guard item.isEnabled else {
-                return .conflict("disabled")
-            }
+                guard item.isEnabled else {
+                    response = .conflict("disabled")
+                    return
+                }
 
-            DispatchQueue.main.async {
                 if let action = item.action {
                     NSApp.sendAction(action, to: item.target, from: item)
                 }
-            }
 
-            let bodyData = try? JSONEncoder().encode(["ok": true])
-            return .ok(json: bodyData ?? Data())
+                let bodyData = try? JSONEncoder().encode(["ok": true])
+                response = .ok(json: bodyData ?? Data())
+            }
+            return response ?? .internalServerError("no response")
         }
     }
 

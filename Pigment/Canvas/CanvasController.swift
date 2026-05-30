@@ -30,28 +30,22 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
         TestAPIRouter.shared.register(controller: self)
     }
 
-    private func executeUndoRedo(_ action: () -> Bool) {
-        if Thread.isMainThread {
-            if action() {
+    func performUndo() {
+        DispatchQueue.main.sync {
+            if state.undo() {
                 canvasView.bitmap = state.bitmap
                 canvasView.needsDisplay = true
-            }
-        } else {
-            DispatchQueue.main.sync {
-                if action() {
-                    canvasView.bitmap = state.bitmap
-                    canvasView.needsDisplay = true
-                }
             }
         }
     }
 
-    func performUndo() {
-        executeUndoRedo { state.undo() }
-    }
-
     func performRedo() {
-        executeUndoRedo { state.redo() }
+        DispatchQueue.main.sync {
+            if state.redo() {
+                canvasView.bitmap = state.bitmap
+                canvasView.needsDisplay = true
+            }
+        }
     }
 
     // MARK: - Helpers
