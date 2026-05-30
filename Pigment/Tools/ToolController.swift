@@ -25,6 +25,7 @@ final class ToolController: NSViewController {
         for sid in stubIds {
             tools[sid] = StubTool(toolId: sid)
         }
+        tools["curve"] = CurveTool()
         tools["ellipse"] = EllipseTool()
         tools["rounded-rectangle"] = RoundedRectangleTool()
         tools["rectangle"] = RectangleTool()
