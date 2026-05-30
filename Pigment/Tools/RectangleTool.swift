@@ -28,8 +28,8 @@ final class RectangleTool: Tool {
 
         // Right-click with outlineFill: fill interior with bgColor, no border.
         // CanvasController maps ctx.fgColor = bgColor for secondary click,
-        // so both fgColor and bgColor are the same (bgColor). We skip the
-        // border draw to keep corners at the original canvas color.
+        // so both fgColor and bgColor in ToolContext are the canvas bgColor.
+        // We skip the border draw to keep corners at the original canvas color.
         if isSecondary && fillMode == "outlineFill" {
             let fillX0 = x0 + lw
             let fillY0 = y0 + lw
@@ -52,15 +52,17 @@ final class RectangleTool: Tool {
             return
         }
 
-        // Draw fill (interior) — uses bgColor
+        // Draw fill interior with bgColor, using half-open range (issue spec).
+        // The fill region is (x0+halfWidth ..< x1-halfWidth, y0+halfWidth ..< y1-halfWidth)
+        // which keeps the fill strictly inside the border.
         if fillMode == "fill" || fillMode == "outlineFill" {
             let fillX0 = x0 + halfWidth
             let fillY0 = y0 + halfWidth
             let fillX1 = x1 - halfWidth
             let fillY1 = y1 - halfWidth
-            if fillX0 <= fillX1 && fillY0 <= fillY1 {
-                for fy in fillY0...fillY1 {
-                    for fx in fillX0...fillX1 {
+            if fillX0 < fillX1 && fillY0 < fillY1 {
+                for fy in fillY0..<fillY1 {
+                    for fx in fillX0..<fillX1 {
                         ctx.bitmap.setPixel(x: fx, y: fy, color: ctx.bgColor)
                     }
                 }
@@ -74,7 +76,8 @@ final class RectangleTool: Tool {
             }
         }
 
-        // Draw border (4 edges with thickness = lineWidth) — uses fgColor
+        // Draw border (4 edges) with fgColor, using lineWidth offset.
+        // Each edge is drawn as a line shifted by the offset for thickness.
         if fillMode == "outline" || fillMode == "outlineFill" {
             for i in 0..<lw {
                 let offset = i - halfWidth
