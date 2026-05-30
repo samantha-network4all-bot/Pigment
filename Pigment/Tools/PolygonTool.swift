@@ -19,13 +19,18 @@ final class PolygonTool: Tool {
     }
 
     func pointerUp(_ ctx: inout ToolContext, _ point: NSPoint) {
-        guard let last = vertices.last else { return }
         let x = Int(point.x.rounded())
         let y: Int = Int(point.y.rounded())
-        drawEdge(&ctx, from: last, to: (x, y))
+        // Append the final vertex per the transition spec
+        vertices.append((x, y))
+        let count = vertices.count
+        if count >= 2 {
+            // Draw edge from previous vertex to the final vertex
+            drawEdge(&ctx, from: vertices[count - 2], to: vertices[count - 1])
+        }
         // Close the polygon: draw line from last vertex back to first
-        if let first = vertices.first, vertices.count >= 2 {
-            drawEdge(&ctx, from: (x, y), to: first)
+        if count >= 3, let first = vertices.first {
+            drawEdge(&ctx, from: vertices[count - 1], to: first)
         }
         vertices.removeAll()
     }
