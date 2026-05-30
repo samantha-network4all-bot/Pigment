@@ -45,4 +45,9 @@ final class CanvasState {
     func clearRedo() {
         redoStack.removeAll()
     }
+
+    func clearUndo() {
+        undoStack.removeAll()
+        pushUndo()
+    }
 }

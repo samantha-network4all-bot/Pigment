@@ -192,7 +192,7 @@ extension CanvasController: TestAPIControllerRoutes {
                 self.state.dirty = false
                 self.state.filePath = nil
                 self.state.selection = nil
-                self.state.clearRedo()
+                self.state.clearUndo()
                 self.canvasView.bitmap = self.state.bitmap
                 self.canvasView.needsDisplay = true
                 if let tc = self.toolController {
