@@ -44,7 +44,9 @@ extension MenuController: TestAPIControllerRoutes {
                     return
                 }
 
-                if let action = item.action {
+                if let action = item.action, let target = item.target {
+                    _ = target.perform(action, with: item)
+                } else if let action = item.action {
                     NSApp.sendAction(action, to: item.target, from: item)
                 }
 

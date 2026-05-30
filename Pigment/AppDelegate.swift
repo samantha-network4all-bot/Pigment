@@ -31,12 +31,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func undo(_ sender: Any?) {
-        guard let win = NSApp.keyWindow as? PigmentWindow else { return }
+        guard let win = (NSApp.keyWindow ?? NSApp.windows.first) as? PigmentWindow else { return }
         win.canvasController.performUndo()
     }
 
     @objc func redo(_ sender: Any?) {
-        guard let win = NSApp.keyWindow as? PigmentWindow else { return }
+        guard let win = (NSApp.keyWindow ?? NSApp.windows.first) as? PigmentWindow else { return }
         win.canvasController.performRedo()
     }
 

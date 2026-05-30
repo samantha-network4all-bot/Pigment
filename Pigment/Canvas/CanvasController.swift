@@ -31,19 +31,33 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
     }
 
     func performUndo() {
-        DispatchQueue.main.sync {
+        if Thread.isMainThread {
             if state.undo() {
                 canvasView.bitmap = state.bitmap
                 canvasView.needsDisplay = true
+            }
+        } else {
+            DispatchQueue.main.sync {
+                if state.undo() {
+                    canvasView.bitmap = state.bitmap
+                    canvasView.needsDisplay = true
+                }
             }
         }
     }
 
     func performRedo() {
-        DispatchQueue.main.sync {
+        if Thread.isMainThread {
             if state.redo() {
                 canvasView.bitmap = state.bitmap
                 canvasView.needsDisplay = true
+            }
+        } else {
+            DispatchQueue.main.sync {
+                if state.redo() {
+                    canvasView.bitmap = state.bitmap
+                    canvasView.needsDisplay = true
+                }
             }
         }
     }
