@@ -9,4 +9,5 @@ struct ToolOptions: Codable {
     var transparentSelection: Bool = false
     var textStyle: String = ""
     var magnifierZoom: Int = 100
+    var currentZoom: Int = 100
 }

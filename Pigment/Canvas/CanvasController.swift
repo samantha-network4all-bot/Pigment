@@ -88,6 +88,7 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
         guard let tc = toolController else { return }
         let nsPoint = NSPoint(x: CGFloat(point.0), y: CGFloat(point.1))
 
+        tc.options.currentZoom = state.zoom
         var ctx = ToolContext(
             bitmap: state.bitmap,
             fgColor: fgColor(),
@@ -181,7 +182,9 @@ extension CanvasController: TestAPIControllerRoutes {
                 self.canvasView.bitmap = self.state.bitmap
                 self.canvasView.needsDisplay = true
                 if let tc = self.toolController {
-                    tc.options = ToolOptions()
+                    var opts = ToolOptions()
+                    opts.currentZoom = 100
+                    tc.options = opts
                 }
             }
 
@@ -227,6 +230,7 @@ extension CanvasController: TestAPIControllerRoutes {
             let toolButton: ToolButton = b.button == "right" ? .secondary : .primary
 
             DispatchQueue.main.sync {
+                tc.options.currentZoom = self.state.zoom
                 var ctx = ToolContext(
                     bitmap: self.state.bitmap,
                     fgColor: effectiveFg,
@@ -238,18 +242,19 @@ extension CanvasController: TestAPIControllerRoutes {
                 tc.activeTool.pointerUp(&ctx, nsPoint)
                 self.state.bitmap = ctx.bitmap
 
+                // Handle zoom result
+                if case .zoom(let percent) = ctx.result {
+                    self.state.zoom = percent
+                    tc.options.currentZoom = percent
+                    self.state.dirty = false
                 // Handle pick-color result
-                if case .pickColor(let fg, let r, let g, let b) = ctx.result {
+                } else if case .pickColor(let fg, let r, let g, let b) = ctx.result {
                     let hex = String(format: "#%02X%02X%02X", r, g, b)
                     if fg {
                         self.colorState?.setForeground(hex)
                     } else {
                         self.colorState?.setBackground(hex)
                     }
-                    self.state.dirty = false
-                } else if case .zoom(let percent) = ctx.result {
-                    self.state.zoom = percent
-                    self.toolController?.options.magnifierZoom = percent
                     self.state.dirty = false
                 } else {
                     self.state.pushUndo()
@@ -313,7 +318,7 @@ extension CanvasController: TestAPIControllerRoutes {
                 self.state.bitmap = ctx.bitmap
                 if case .zoom(let percent) = ctx.result {
                     self.state.zoom = percent
-                    self.toolController?.options.magnifierZoom = percent
+                    self.toolController?.options.currentZoom = percent
                     self.state.dirty = false
                 } else {
                     self.state.pushUndo()
