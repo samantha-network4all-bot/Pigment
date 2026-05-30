@@ -36,8 +36,12 @@ import AppKit
         mainMenu.addItem(editMenuItem)
         let editMenu = NSMenu(title: "Edit")
         editMenuItem.submenu = editMenu
-        editMenu.addItem(withTitle: "Undo", action: #selector(AppDelegate.undo(_:)), keyEquivalent: "z")
-        editMenu.addItem(withTitle: "Redo", action: #selector(AppDelegate.redo(_:)), keyEquivalent: "Z")
+        let undoItem = NSMenuItem(title: "Undo", action: #selector(AppDelegate.undo(_:)), keyEquivalent: "z")
+        undoItem.target = NSApp.delegate
+        editMenu.addItem(undoItem)
+        let redoItem = NSMenuItem(title: "Redo", action: #selector(AppDelegate.redo(_:)), keyEquivalent: "Z")
+        redoItem.target = NSApp.delegate
+        editMenu.addItem(redoItem)
         editMenu.addItem(.separator())
         editMenu.addItem(withTitle: "Cut", action: #selector(noop), keyEquivalent: "x")
         editMenu.addItem(withTitle: "Copy", action: #selector(noop), keyEquivalent: "c")
