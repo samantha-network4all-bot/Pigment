@@ -26,8 +26,10 @@ final class RectangleTool: Tool {
         let halfWidth = lw / 2
         let isSecondary = ctx.button == .secondary
 
-        // Right-click with outlineFill: fill interior with bgColor, no border
-        // This makes corners stay at canvas color while interior gets bg fill.
+        // Right-click with outlineFill: fill interior with bgColor, no border.
+        // CanvasController maps ctx.fgColor = bgColor for secondary click,
+        // so both fgColor and bgColor are the same (bgColor). We skip the
+        // border draw to keep corners at the original canvas color.
         if isSecondary && fillMode == "outlineFill" {
             let fillX0 = x0 + lw
             let fillY0 = y0 + lw
@@ -50,7 +52,7 @@ final class RectangleTool: Tool {
             return
         }
 
-        // Draw fill (interior)
+        // Draw fill (interior) — uses bgColor
         if fillMode == "fill" || fillMode == "outlineFill" {
             let fillX0 = x0 + halfWidth
             let fillY0 = y0 + halfWidth
@@ -63,6 +65,7 @@ final class RectangleTool: Tool {
                     }
                 }
             } else {
+                // Rect too small for interior; fill the whole area
                 for fy in y0...y1 {
                     for fx in x0...x1 {
                         ctx.bitmap.setPixel(x: fx, y: fy, color: ctx.bgColor)
@@ -71,13 +74,17 @@ final class RectangleTool: Tool {
             }
         }
 
-        // Draw border (4 edges with thickness = lineWidth)
+        // Draw border (4 edges with thickness = lineWidth) — uses fgColor
         if fillMode == "outline" || fillMode == "outlineFill" {
             for i in 0..<lw {
                 let offset = i - halfWidth
+                // Top edge
                 ctx.bitmap.drawLine(x0: x0, y0: y0 + offset, x1: x1, y1: y0 + offset, color: ctx.fgColor)
+                // Bottom edge
                 ctx.bitmap.drawLine(x0: x0, y0: y1 + offset, x1: x1, y1: y1 + offset, color: ctx.fgColor)
+                // Left edge
                 ctx.bitmap.drawLine(x0: x0 + offset, y0: y0, x1: x0 + offset, y1: y1, color: ctx.fgColor)
+                // Right edge
                 ctx.bitmap.drawLine(x0: x1 + offset, y0: y0, x1: x1 + offset, y1: y1, color: ctx.fgColor)
             }
         }
