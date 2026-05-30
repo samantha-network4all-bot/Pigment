@@ -176,6 +176,9 @@ extension CanvasController: TestAPIControllerRoutes {
                 }
                 self.canvasView.bitmap = self.state.bitmap
                 self.canvasView.needsDisplay = true
+                if let tc = self.toolController {
+                    tc.options = ToolOptions()
+                }
             }
 
             let body = try? JSONEncoder().encode(["ok": true])

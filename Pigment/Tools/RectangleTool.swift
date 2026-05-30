@@ -24,14 +24,11 @@ final class RectangleTool: Tool {
         let fillMode = ctx.options.fillMode
         let lw = ctx.options.lineWidth
         let halfWidth = lw / 2
-        let borderColor = ctx.fgColor
-        let fillColor = ctx.bgColor
-
-        // For right-click (secondary button), fill interior only (no border)
         let isSecondary = ctx.button == .secondary
 
+        // Right-click with outlineFill: fill interior with bgColor, no border
+        // This makes corners stay at canvas color while interior gets bg fill.
         if isSecondary && fillMode == "outlineFill" {
-            // Right-click outlineFill: fill interior with bgColor, no border
             let fillX0 = x0 + lw
             let fillY0 = y0 + lw
             let fillX1 = x1 - lw
@@ -39,49 +36,49 @@ final class RectangleTool: Tool {
             if fillX0 <= fillX1 && fillY0 <= fillY1 {
                 for fy in fillY0...fillY1 {
                     for fx in fillX0...fillX1 {
-                        ctx.bitmap.setPixel(x: fx, y: fy, color: fillColor)
+                        ctx.bitmap.setPixel(x: fx, y: fy, color: ctx.bgColor)
                     }
                 }
             } else {
-                // Rect too small for interior: fill everything
                 for fy in y0...y1 {
                     for fx in x0...x1 {
-                        ctx.bitmap.setPixel(x: fx, y: fy, color: fillColor)
+                        ctx.bitmap.setPixel(x: fx, y: fy, color: ctx.bgColor)
                     }
                 }
             }
-        } else {
-            // Primary button or non-outlineFill: standard behavior
-            // Fill
-            if fillMode == "fill" || fillMode == "outlineFill" {
-                let fillX0 = x0 + halfWidth
-                let fillY0 = y0 + halfWidth
-                let fillX1 = x1 - halfWidth
-                let fillY1 = y1 - halfWidth
-                if fillX0 <= fillX1 && fillY0 <= fillY1 {
-                    for fy in fillY0...fillY1 {
-                        for fx in fillX0...fillX1 {
-                            ctx.bitmap.setPixel(x: fx, y: fy, color: fillColor)
-                        }
-                    }
-                } else {
-                    for fy in y0...y1 {
-                        for fx in x0...x1 {
-                            ctx.bitmap.setPixel(x: fx, y: fy, color: fillColor)
-                        }
-                    }
-                }
-            }
+            startPoint = nil
+            return
+        }
 
-            // Border
-            if fillMode == "outline" || fillMode == "outlineFill" {
-                for i in 0..<lw {
-                    let offset = i - halfWidth
-                    ctx.bitmap.drawLine(x0: x0, y0: y0 + offset, x1: x1, y1: y0 + offset, color: borderColor)
-                    ctx.bitmap.drawLine(x0: x0, y0: y1 + offset, x1: x1, y1: y1 + offset, color: borderColor)
-                    ctx.bitmap.drawLine(x0: x0 + offset, y0: y0, x1: x0 + offset, y1: y1, color: borderColor)
-                    ctx.bitmap.drawLine(x0: x1 + offset, y0: y0, x1: x1 + offset, y1: y1, color: borderColor)
+        // Draw fill (interior)
+        if fillMode == "fill" || fillMode == "outlineFill" {
+            let fillX0 = x0 + halfWidth
+            let fillY0 = y0 + halfWidth
+            let fillX1 = x1 - halfWidth
+            let fillY1 = y1 - halfWidth
+            if fillX0 <= fillX1 && fillY0 <= fillY1 {
+                for fy in fillY0...fillY1 {
+                    for fx in fillX0...fillX1 {
+                        ctx.bitmap.setPixel(x: fx, y: fy, color: ctx.bgColor)
+                    }
                 }
+            } else {
+                for fy in y0...y1 {
+                    for fx in x0...x1 {
+                        ctx.bitmap.setPixel(x: fx, y: fy, color: ctx.bgColor)
+                    }
+                }
+            }
+        }
+
+        // Draw border (4 edges with thickness = lineWidth)
+        if fillMode == "outline" || fillMode == "outlineFill" {
+            for i in 0..<lw {
+                let offset = i - halfWidth
+                ctx.bitmap.drawLine(x0: x0, y0: y0 + offset, x1: x1, y1: y0 + offset, color: ctx.fgColor)
+                ctx.bitmap.drawLine(x0: x0, y0: y1 + offset, x1: x1, y1: y1 + offset, color: ctx.fgColor)
+                ctx.bitmap.drawLine(x0: x0 + offset, y0: y0, x1: x0 + offset, y1: y1, color: ctx.fgColor)
+                ctx.bitmap.drawLine(x0: x1 + offset, y0: y0, x1: x1 + offset, y1: y1, color: ctx.fgColor)
             }
         }
 
