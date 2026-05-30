@@ -44,7 +44,8 @@ extension ZoomController: TestAPIControllerRoutes {
                 return .badRequest("body must be {\"percent\":400,\"windowId\"?:\"w1\"}")
             }
             guard self.zoomLevels.contains(b.percent) else {
-                return .badRequest("invalid zoom: \(b.percent)")
+                let json = try? JSONSerialization.data(withJSONObject: ["ok": false, "error": "invalid zoom: \(b.percent)"])
+                return .ok(json: json ?? Data())
             }
             var ok = false
             DispatchQueue.main.sync {
