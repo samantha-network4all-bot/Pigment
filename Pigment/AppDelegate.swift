@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         MenuBuilder.build()
-        _ = menuController // instantiate to register routes
+        _ = menuController.view // force viewDidLoad to register routes
         appController.startTestAPIIfNeeded()
 
         // Instantiate ColorController so its routes are registered before tests call /color/set
