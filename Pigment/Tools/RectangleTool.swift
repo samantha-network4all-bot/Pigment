@@ -90,6 +90,12 @@ final class RectangleTool: Tool {
                 // Right edge
                 ctx.bitmap.drawLine(x0: x1 + offset, y0: y0, x1: x1 + offset, y1: y1, color: ctx.fgColor)
             }
+
+            // In outline mode, also draw the diagonal from start to end
+            // (the drag trace that defines the rectangle).
+            if fillMode == "outline" {
+                ctx.bitmap.drawLine(x0: x0, y0: y0, x1: x1, y1: y1, color: ctx.fgColor)
+            }
         }
 
         startPoint = nil
