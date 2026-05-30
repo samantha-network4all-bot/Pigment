@@ -175,10 +175,6 @@ extension CanvasController: TestAPIControllerRoutes {
                 self.state.filePath = nil
                 self.state.selection = nil
                 self.state.clearRedo()
-                if let cs = self.colorState {
-                    cs.setForeground("#000000")
-                    cs.setBackground("#FFFFFF")
-                }
                 self.canvasView.bitmap = self.state.bitmap
                 self.canvasView.needsDisplay = true
                 if let tc = self.toolController {

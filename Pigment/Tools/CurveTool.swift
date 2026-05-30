@@ -21,6 +21,8 @@ final class CurveTool: Tool {
             bend1 = pt
         } else if bend2 == nil {
             bend2 = pt
+        } else {
+            bend2 = pt
         }
         drawCurve(&ctx, current: pt)
     }
