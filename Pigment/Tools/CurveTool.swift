@@ -7,11 +7,13 @@ final class CurveTool: Tool {
     private var start: (Int, Int)?
     private var bend1: (Int, Int)?
     private var bend2: (Int, Int)?
+    private var endpoint: (Int, Int)?
 
     func pointerDown(_ ctx: inout ToolContext, _ point: NSPoint) {
         start = (Int(point.x.rounded()), Int(point.y.rounded()))
         bend1 = nil
         bend2 = nil
+        endpoint = nil
     }
 
     func pointerDragged(_ ctx: inout ToolContext, _ point: NSPoint) {
@@ -22,39 +24,42 @@ final class CurveTool: Tool {
             bend1 = pt
         } else if bend2 == nil {
             bend2 = pt
-            // First time bend2 is set, draw preview with current point as endpoint
-            drawCurve(&ctx, endPt: pt)
+            // First drag after bend2 set: use current point as initial endpoint
+            endpoint = pt
+            drawCurve(&ctx)
         } else {
-            bend2 = pt
-            // Update bend2 and redraw preview with current point as endpoint
-            drawCurve(&ctx, endPt: pt)
+            // Update endpoint live (don't modify bend2)
+            endpoint = pt
+            drawCurve(&ctx)
         }
     }
 
     func pointerUp(_ ctx: inout ToolContext, _ point: NSPoint) {
-        guard let _ = start, let _ = bend1, let _ = bend2 else {
-            // Not all three set yet: no-op (waiting for more drags)
+        guard let _ = start, let _ = bend1, let _ = bend2, let _ = endpoint else {
+            // Not all points set yet: no-op (waiting for more drags)
             return
         }
         let pt = (Int(point.x.rounded()), Int(point.y.rounded()))
         // Commit the curve with the final endpoint
-        bend2 = pt
-        drawCurve(&ctx, endPt: pt)
+        endpoint = pt
+        drawCurve(&ctx)
         start = nil
         bend1 = nil
         bend2 = nil
+        endpoint = nil
     }
 
-    private func drawCurve(_ ctx: inout ToolContext, endPt: (Int, Int)) {
+    private func drawCurve(_ ctx: inout ToolContext) {
         guard let (x0, y0) = start,
               let (x1, y1) = bend1,
-              let (x2, y2) = bend2 else { return }
+              let (x2, y2) = bend2,
+              let (x3, y3) = endpoint else { return }
 
-        // Cubic Bézier: P0=start, P1=bend1, P2=bend2, P3=endPt
+        // Cubic Bézier: P0=start, P1=bend1, P2=bend2, P3=endpoint
         let p0 = (Double(x0), Double(y0))
         let p1 = (Double(x1), Double(y1))
         let p2 = (Double(x2), Double(y2))
-        let p3 = (Double(endPt.0), Double(endPt.1))
+        let p3 = (Double(x3), Double(y3))
 
         let color = ctx.fgColor
         let lw = ctx.options.lineWidth
