@@ -70,12 +70,11 @@ final class PolygonTool: Tool {
 
         let nx = -Double(dy) / len
         let ny = Double(dx) / len
-        let half = Double(lw - 1) / 2.0
+        let hw = lw / 2
 
-        for i in 0..<lw {
-            let offset = Double(i) - half
-            let ox = Int(floor(nx * offset))
-            let oy = Int(floor(ny * offset))
+        for i in -hw..<(lw - hw) {
+            let ox = Int((nx * Double(i)).rounded())
+            let oy = Int((ny * Double(i)).rounded())
             ctx.bitmap.drawLine(
                 x0: from.0 + ox, y0: from.1 + oy,
                 x1: to.0 + ox, y1: to.1 + oy,
