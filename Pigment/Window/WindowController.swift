@@ -4,12 +4,17 @@ final class WindowController: NSWindowController {
 
     private static var windowCount = 0
     let windowId: String
+    private let zoomController: ZoomController
 
     init() {
         let window = PigmentWindow()
         WindowController.windowCount += 1
         self.windowId = "w\(WindowController.windowCount)"
+        self.zoomController = ZoomController()
         super.init(window: window)
+
+        // Ensure ZoomController's viewDidLoad fires so routes register
+        _ = zoomController.view
 
         TestAPIWindowStore.shared.register(id: windowId, window: window)
         TestAPIRouter.shared.register(controller: self)
