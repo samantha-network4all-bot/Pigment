@@ -22,9 +22,12 @@ final class CurveTool: Tool {
             bend1 = pt
         } else if bend2 == nil {
             bend2 = pt
+            // First time bend2 is set, draw preview with current point as endpoint
+            drawCurve(&ctx, endPt: pt)
         } else {
             bend2 = pt
-            drawCurve(&ctx)
+            // Update bend2 and redraw preview with current point as endpoint
+            drawCurve(&ctx, endPt: pt)
         }
     }
 
@@ -34,31 +37,24 @@ final class CurveTool: Tool {
             return
         }
         let pt = (Int(point.x.rounded()), Int(point.y.rounded()))
+        // Commit the curve with the final endpoint
         bend2 = pt
-        drawCurve(&ctx)
+        drawCurve(&ctx, endPt: pt)
         start = nil
         bend1 = nil
         bend2 = nil
     }
 
-    private func drawCurve(_ ctx: inout ToolContext) {
+    private func drawCurve(_ ctx: inout ToolContext, endPt: (Int, Int)) {
         guard let (x0, y0) = start,
               let (x1, y1) = bend1,
               let (x2, y2) = bend2 else { return }
 
-        // Determine endpoint P3: if pointerUp was called, bend2 is the endpoint;
-        // if pointerDragged was called (preview), bend2 is also the endpoint.
-        // For a proper cubic Bézier: P0=start, P1=bend1, P2=bend2(control), P3=end
-        // Since we only have 3 state vars at draw time (start, bend1, bend2),
-        // P3 = bend2 (the third point serves as both control point 2 and endpoint).
-        // This creates a curve from start through bend1 to bend2.
-        let x3 = ctx.button == .primary ? x2 : x2 // end point
-        let y3 = ctx.button == .primary ? y2 : y2
-
+        // Cubic Bézier: P0=start, P1=bend1, P2=bend2, P3=endPt
         let p0 = (Double(x0), Double(y0))
         let p1 = (Double(x1), Double(y1))
         let p2 = (Double(x2), Double(y2))
-        let p3 = (Double(x3), Double(y3))
+        let p3 = (Double(endPt.0), Double(endPt.1))
 
         let color = ctx.fgColor
         let lw = ctx.options.lineWidth
