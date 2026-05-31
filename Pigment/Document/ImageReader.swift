@@ -8,9 +8,12 @@ enum ImageReader {
         let h = rep.pixelsHigh
         var bmp = Bitmap(width: w, height: h)
         guard let bytes = rep.bitmapData else { return bmp }
+        // Use bytesPerRow/w as actual bytes per pixel (includes padding)
+        // samplesPerPixel may be less than actual storage (e.g., RGB stored as RGBX)
+        let bytesPerPixel = rep.bytesPerRow / w
         for y in 0..<h {
             for x in 0..<w {
-                let srcIdx = y * rep.bytesPerRow + x * 4
+                let srcIdx = y * rep.bytesPerRow + x * bytesPerPixel
                 let r = bytes[srcIdx]
                 let g = bytes[srcIdx + 1]
                 let b = bytes[srcIdx + 2]

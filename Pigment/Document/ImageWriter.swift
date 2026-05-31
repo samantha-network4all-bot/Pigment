@@ -1,4 +1,8 @@
 import AppKit
+import CoreGraphics
+import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 enum ImageWriter {
     enum Format: String { case png, jpeg, bmp }
@@ -10,33 +14,56 @@ enum ImageWriter {
         }
         let w = bitmap.width
         let h = bitmap.height
-        let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
-                                    pixelsWide: w,
-                                    pixelsHigh: h,
-                                    bitsPerSample: 8,
-                                    samplesPerPixel: 3,
-                                    hasAlpha: false,
-                                    isPlanar: false,
-                                    colorSpaceName: .deviceRGB,
-                                    bytesPerRow: w * 3,
-                                    bitsPerPixel: 24)!
+
+        // Build RGBA pixel data - initialized to white (255,255,255)
+        var pixelData = [UInt8](repeating: 255, count: w * h * 4)
         for y in 0..<h {
             for x in 0..<w {
                 let p = bitmap[x, y]
-                var pixelVals: [Int] = [Int(p.r), Int(p.g), Int(p.b)]
-                rep.setPixel(&pixelVals, atX: x, y: y)
+                let idx = (y * w + x) * 4
+                pixelData[idx]     = p.r
+                pixelData[idx + 1] = p.g
+                pixelData[idx + 2] = p.b
+                // alpha stays 255
             }
         }
-        let fileType: NSBitmapImageRep.FileType
+
+
+        // Create CGImage with explicit sRGB, no color management surprises
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+        guard let provider = CGDataProvider(data: Data(pixelData) as CFData),
+              let cgImage = CGImage(width: w, height: h,
+                                    bitsPerComponent: 8, bitsPerPixel: 32,
+                                    bytesPerRow: w * 4,
+                                    space: cs,
+                                    bitmapInfo: bitmapInfo,
+                                    provider: provider,
+                                    decode: nil,
+                                    shouldInterpolate: false,
+                                    intent: .defaultIntent) else {
+            throw NSError(domain: "ImageWriter", code: 4, userInfo: [NSLocalizedDescriptionKey: "CGImage creation failed"])
+        }
+
+        // Write via CGImageDestination
+        let url = URL(fileURLWithPath: path) as CFURL
+        let destType: CFString
+        var props: [CFString: Any] = [:]
         switch bmpFmt {
-        case .png:  fileType = .png
-        case .jpeg: fileType = .jpeg
-        case .bmp:  fileType = .bmp
+        case .png:
+            destType = UTType.png.identifier as CFString
+        case .jpeg:
+            destType = UTType.jpeg.identifier as CFString
+            props[kCGImageDestinationLossyCompressionQuality] = 0.9
+        case .bmp:
+            destType = UTType.bmp.identifier as CFString
         }
-        let props: [NSBitmapImageRep.PropertyKey: Any] = bmpFmt == .jpeg ? [.compressionFactor: 0.9] : [:]
-        guard let data = rep.representation(using: fileType, properties: props) else {
-            throw NSError(domain: "ImageWriter", code: 2, userInfo: [NSLocalizedDescriptionKey: "representation failed"])
+        guard let dest = CGImageDestinationCreateWithURL(url, destType, 1, nil) else {
+            throw NSError(domain: "ImageWriter", code: 5, userInfo: [NSLocalizedDescriptionKey: "CGImageDestination creation failed"])
         }
-        (data as NSData).write(toFile: path, atomically: true)
+        CGImageDestinationAddImage(dest, cgImage, props as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else {
+            throw NSError(domain: "ImageWriter", code: 6, userInfo: [NSLocalizedDescriptionKey: "CGImageDestination finalize failed"])
+        }
     }
 }
