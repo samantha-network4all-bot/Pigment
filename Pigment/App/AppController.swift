@@ -82,6 +82,9 @@ final class TestAPIWindowStore {
         if let id = id {
             return windows[id]
         }
-        return NSApp.keyWindow ?? NSApp.windows.first
+        if let key = NSApp.keyWindow { return key }
+        if let first = NSApp.windows.first { return first }
+        // Fallback: return the first registered window (useful during early startup)
+        return windows.values.first
     }
 }

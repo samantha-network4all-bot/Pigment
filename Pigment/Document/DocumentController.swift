@@ -2,10 +2,14 @@ import AppKit
 
 final class DocumentController: NSViewController {
 
+    weak var toolController: ToolController?
+    weak var colorState: ColorState?
+
     // Retained references to document windows so test API can find them
     private static var nextDocWindowId = 2
     // Map windowId -> (window, canvasController)
     private static var docWindows: [String: (PigmentWindow, CanvasController)] = [:]
+    private static var docWindowOrder: [String] = []
 
     override func loadView() {
         self.view = NSView(frame: .zero)
@@ -20,7 +24,6 @@ final class DocumentController: NSViewController {
         if let pw = (NSApp.keyWindow ?? NSApp.windows.first) as? PigmentWindow {
             return pw.canvasController
         }
-        // Fallback: check doc windows
         if let entry = DocumentController.docWindows.values.first {
             return entry.1
         }
@@ -39,25 +42,31 @@ final class DocumentController: NSViewController {
         canvas.canvasView.bitmap = bitmap
         canvas.canvasView.needsDisplay = true
 
-        if let tc = canvas.toolController {
+        // Wire tool controller and color state so canvas operations work in document windows
+        canvas.toolController = toolController
+        canvas.colorState = colorState
+
+        if let tc = toolController {
             var opts = ToolOptions()
             opts.currentZoom = 100
             tc.options = opts
         }
 
         pw.title = URL(fileURLWithPath: filePath).lastPathComponent + " - Pigment"
+        pw.makeKeyAndOrderFront(nil)
 
         let wid = "w\(DocumentController.nextDocWindowId)"
         DocumentController.nextDocWindowId += 1
         TestAPIWindowStore.shared.register(id: wid, window: pw)
         DocumentController.docWindows[wid] = (pw, canvas)
+        DocumentController.docWindowOrder.append(wid)
 
-        wc.showWindow(nil)
         return wid
     }
 
-    private static func clearDocWindows() {
-        docWindows.removeAll()
+    static func latestDocWindow() -> CanvasController? {
+        guard let lastId = DocumentController.docWindowOrder.last else { return nil }
+        return DocumentController.docWindows[lastId]?.1
     }
 }
 
@@ -85,24 +94,7 @@ extension DocumentController: TestAPIControllerRoutes {
 
             var result: TestAPIResponse?
             DispatchQueue.main.sync {
-                let targetWindowId: String?
-                if let wid = b.windowId, !wid.isEmpty {
-                    targetWindowId = wid
-                } else {
-                    targetWindowId = nil
-                }
-
-                var targetCanvas: CanvasController?
-                if let wid = targetWindowId {
-                    if let entry = DocumentController.docWindows[wid] {
-                        targetCanvas = entry.1
-                    } else if let win = TestAPIWindowStore.shared.window(id: wid) as? PigmentWindow {
-                        targetCanvas = win.canvasController
-                    }
-                }
-                if targetCanvas == nil {
-                    targetCanvas = self.keyCanvasController()
-                }
+                let targetCanvas = CanvasController.findCanvas(windowId: b.windowId)
 
                 guard let canvas = targetCanvas else {
                     result = .internalServerError("no canvas")
@@ -113,10 +105,9 @@ extension DocumentController: TestAPIControllerRoutes {
                 if ok {
                     canvas.state.dirty = false
                     canvas.state.filePath = b.path
-                    if let win = (TestAPIWindowStore.shared.window(id: targetWindowId) ??
-                                  (NSApp.keyWindow ?? NSApp.windows.first)) {
+                    if let pw = (NSApp.keyWindow ?? NSApp.windows.first) as? PigmentWindow {
                         let fileName = URL(fileURLWithPath: b.path).lastPathComponent
-                        win.title = "\(fileName) - Pigment"
+                        pw.title = "\(fileName) - Pigment"
                     }
                     if let body = try? JSONEncoder().encode(["ok": true]) {
                         result = .ok(json: body)
@@ -124,7 +115,7 @@ extension DocumentController: TestAPIControllerRoutes {
                         result = .internalServerError("JSON encode failed")
                     }
                 } else {
-                    result = .badRequest("unsupported format or write failed")
+                    result = .internalServerError("write failed")
                 }
             }
             return result ?? .internalServerError("no response")

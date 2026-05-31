@@ -1,6 +1,6 @@
 import AppKit
 
-final class CanvasController: NSViewController, CanvasMouseHandler {
+final class CanvasController: NSViewController, CanvasMouseHandler, TestAPIControllerRoutes {
 
     let state = CanvasState()
     let canvasView: CanvasView
@@ -63,21 +63,17 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
     }
 
     // MARK: - Helpers
-    private func fgColor() -> (UInt8, UInt8, UInt8) {
-        if let cs = colorState {
-            return cs.fgColor
-        }
+    fileprivate func fgColor() -> (UInt8, UInt8, UInt8) {
+        if let cs = colorState { return cs.fgColor }
         return (0, 0, 0)
     }
 
-    private func bgColor() -> (UInt8, UInt8, UInt8) {
-        if let cs = colorState {
-            return cs.bgColor
-        }
+    fileprivate func bgColor() -> (UInt8, UInt8, UInt8) {
+        if let cs = colorState { return cs.bgColor }
         return (255, 255, 255)
     }
 
-    private func colorFromButton(_ button: String) -> (UInt8, UInt8, UInt8) {
+    fileprivate func colorFromButton(_ button: String) -> (UInt8, UInt8, UInt8) {
         switch button {
         case "left":  return fgColor()
         case "right": return bgColor()
@@ -86,7 +82,7 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
     }
 
     // Bresenham interpolation: draws all pixels between two points
-    private func interpolatePoints(_ p0: NSPoint, _ p1: NSPoint) -> [NSPoint] {
+    fileprivate func interpolatePoints(_ p0: NSPoint, _ p1: NSPoint) -> [NSPoint] {
         var points: [NSPoint] = []
         let x0 = Int(p0.x.rounded())
         let y0 = Int(p0.y.rounded())
@@ -157,34 +153,37 @@ final class CanvasController: NSViewController, CanvasMouseHandler {
         canvasView.bitmap = state.bitmap
         canvasView.needsDisplay = true
     }
-}
 
-// MARK: - Routes
-extension CanvasController: TestAPIControllerRoutes {
-
+    // MARK: - TestAPIControllerRoutes
     static var routePrefix: String { "canvas" }
 
     func registerRoutes(on router: TestAPIRouter) {
-        router.get(prefix: Self.routePrefix, path: "/state") { [weak self] req in
-            guard let self else { return .notFound(req) }
-
-            var result: [String: Any] = [:]
-            result["canvas"] = ["w": self.state.bitmap.width, "h": self.state.bitmap.height]
-            result["zoom"] = self.state.zoom
-            result["dirty"] = self.state.dirty
-            result["filePath"] = self.state.filePath ?? NSNull()
-            result["drawOpaque"] = self.state.drawOpaque
-            result["selection"] = self.state.selection ?? NSNull()
-
-            guard let body = try? JSONSerialization.data(withJSONObject: result) else {
-                return .internalServerError("JSON encode failed")
+        // GET /canvas/state
+        router.get(prefix: Self.routePrefix, path: "/state") { req in
+            var result: TestAPIResponse?
+            DispatchQueue.main.sync {
+                guard let canvas = Self.findCanvas(windowId: req.query["windowId"]) else {
+                    result = .notFound(req)
+                    return
+                }
+                var dict: [String: Any] = [:]
+                dict["canvas"] = ["w": canvas.state.bitmap.width, "h": canvas.state.bitmap.height]
+                dict["zoom"] = canvas.state.zoom
+                dict["dirty"] = canvas.state.dirty
+                dict["filePath"] = canvas.state.filePath ?? NSNull()
+                dict["drawOpaque"] = canvas.state.drawOpaque
+                dict["selection"] = canvas.state.selection ?? NSNull()
+                guard let body = try? JSONSerialization.data(withJSONObject: dict) else {
+                    result = .internalServerError("JSON encode failed")
+                    return
+                }
+                result = .ok(json: body)
             }
-            return .ok(json: body)
+            return result ?? .internalServerError("no response")
         }
 
-        router.post(prefix: Self.routePrefix, path: "/new") { [weak self] req in
-            guard let self else { return .notFound(req) }
-
+        // POST /canvas/new
+        router.post(prefix: Self.routePrefix, path: "/new") { req in
             struct Body: Decodable {
                 let w: Int?
                 let h: Int?
@@ -200,165 +199,259 @@ extension CanvasController: TestAPIControllerRoutes {
                 h = 600
             }
 
+            var result: TestAPIResponse?
             DispatchQueue.main.sync {
-                self.state.bitmap = Bitmap(width: w, height: h)
-                self.state.zoom = 100
-                self.state.dirty = false
-                self.state.filePath = nil
-                self.state.selection = nil
-                self.state.clearUndo()
-                self.canvasView.bitmap = self.state.bitmap
-                self.canvasView.needsDisplay = true
-                if let tc = self.toolController {
+                guard let canvas = Self.findCanvas(windowId: req.query["windowId"]) else {
+                    result = .internalServerError("no canvas available")
+                    return
+                }
+                canvas.state.bitmap = Bitmap(width: w, height: h)
+                canvas.state.zoom = 100
+                canvas.state.dirty = false
+                canvas.state.filePath = nil
+                canvas.state.selection = nil
+                canvas.state.clearUndo()
+                canvas.canvasView.bitmap = canvas.state.bitmap
+                canvas.canvasView.needsDisplay = true
+                if let tc = canvas.toolController {
                     var opts = ToolOptions()
                     opts.currentZoom = 100
                     tc.options = opts
                 }
+                if let body = try? JSONEncoder().encode(["ok": true]) {
+                    result = .ok(json: body)
+                } else {
+                    result = .internalServerError("JSON encode failed")
+                }
             }
-
-            let body = try? JSONEncoder().encode(["ok": true])
-            return .ok(json: body ?? Data())
+            return result ?? .internalServerError("no response")
         }
 
         // GET /canvas/pixel?x=&y=
-        router.get(prefix: Self.routePrefix, path: "/pixel") { [weak self] req in
-            guard let self else { return .notFound(req) }
-            guard let xStr = req.query["x"], let yStr = req.query["y"],
-                  let x = Int(xStr), let y = Int(yStr) else {
-                return .badRequest("query params x and y required")
-            }
-            var result: [String: Any] = [:]
+        router.get(prefix: Self.routePrefix, path: "/pixel") { req in
+            var result: TestAPIResponse?
             DispatchQueue.main.sync {
-                result["x"] = x
-                result["y"] = y
-                if let (r, g, b) = self.state.bitmap.pixelAt(x: x, y: y) {
-                    result["color"] = String(format: "#%02X%02X%02X", r, g, b)
-                } else {
-                    result["color"] = "#000000"
+                guard let canvas = Self.findCanvas(windowId: req.query["windowId"]) else {
+                    result = .notFound(req)
+                    return
                 }
+                guard let xStr = req.query["x"], let yStr = req.query["y"],
+                      let x = Int(xStr), let y = Int(yStr) else {
+                    result = .badRequest("query params x and y required")
+                    return
+                }
+                var dict: [String: Any] = [:]
+                dict["x"] = x
+                dict["y"] = y
+                if let (r, g, b) = canvas.state.bitmap.pixelAt(x: x, y: y) {
+                    dict["color"] = String(format: "#%02X%02X%02X", r, g, b)
+                } else {
+                    dict["color"] = "#000000"
+                }
+                guard let json = try? JSONSerialization.data(withJSONObject: dict) else {
+                    result = .internalServerError("JSON encode failed")
+                    return
+                }
+                result = .ok(json: json)
             }
-            guard let json = try? JSONSerialization.data(withJSONObject: result) else {
-                return .internalServerError("JSON encode failed")
+            return result ?? .internalServerError("no response")
+        }
+
+        // POST /canvas/pixel?x=&y=  (test harness uses POST for pixel readback)
+        router.post(prefix: Self.routePrefix, path: "/pixel") { req in
+            var result: TestAPIResponse?
+            DispatchQueue.main.sync {
+                guard let canvas = Self.findCanvas(windowId: req.query["windowId"]) else {
+                    result = .notFound(req)
+                    return
+                }
+                guard let xStr = req.query["x"], let yStr = req.query["y"],
+                      let x = Int(xStr), let y = Int(yStr) else {
+                    result = .badRequest("query params x and y required")
+                    return
+                }
+                var dict: [String: Any] = [:]
+                dict["x"] = x
+                dict["y"] = y
+                if let (r, g, b) = canvas.state.bitmap.pixelAt(x: x, y: y) {
+                    dict["color"] = String(format: "#%02X%02X%02X", r, g, b)
+                } else {
+                    dict["color"] = "#000000"
+                }
+                guard let json = try? JSONSerialization.data(withJSONObject: dict) else {
+                    result = .internalServerError("JSON encode failed")
+                    return
+                }
+                result = .ok(json: json)
             }
-            return .ok(json: json)
+            return result ?? .internalServerError("no response")
         }
 
         // POST /canvas/click {"x":10,"y":10,"button":"left"}
-        router.post(prefix: Self.routePrefix, path: "/click") { [weak self] req in
-            guard let self else { return .notFound(req) }
-            guard let tc = self.toolController else { return .internalServerError("no tool controller") }
-            struct Body: Decodable { let x: Int; let y: Int; let button: String }
-            guard let b = try? JSONDecoder().decode(Body.self, from: req.body) else {
-                return .badRequest("body must be {\"x\":int,\"y\":int,\"button\":\"left|right\"}")
-            }
-            let nsPoint = NSPoint(x: CGFloat(b.x), y: CGFloat(b.y))
-
-            // Determine effective fg color based on button (primary=fg, secondary=bg)
-            let effectiveFg = b.button == "right" ? self.bgColor() : self.fgColor()
-            let toolButton: ToolButton = b.button == "right" ? .secondary : .primary
-
+        router.post(prefix: Self.routePrefix, path: "/click") { req in
+            var result: TestAPIResponse?
             DispatchQueue.main.sync {
-                tc.options.currentZoom = self.state.zoom
+                guard let canvas = Self.findCanvas(windowId: req.query["windowId"]) else {
+                    result = .notFound(req)
+                    return
+                }
+                guard let tc = canvas.toolController else {
+                    result = .internalServerError("no tool controller")
+                    return
+                }
+                struct Body: Decodable { let x: Int; let y: Int; let button: String }
+                guard let b = try? JSONDecoder().decode(Body.self, from: req.body) else {
+                    result = .badRequest("body must be {\"x\":int,\"y\":int,\"button\":\"left|right\"}")
+                    return
+                }
+                let nsPoint = NSPoint(x: CGFloat(b.x), y: CGFloat(b.y))
+
+                let effectiveFg = b.button == "right" ? canvas.bgColor() : canvas.fgColor()
+                let toolButton: ToolButton = b.button == "right" ? .secondary : .primary
+
+                tc.options.currentZoom = canvas.state.zoom
                 var ctx = ToolContext(
-                    bitmap: self.state.bitmap,
+                    bitmap: canvas.state.bitmap,
                     fgColor: effectiveFg,
-                    bgColor: self.bgColor(),
+                    bgColor: canvas.bgColor(),
                     options: tc.options,
                     button: toolButton
                 )
                 tc.activeTool.pointerDown(&ctx, nsPoint)
                 tc.activeTool.pointerUp(&ctx, nsPoint)
-                self.state.bitmap = ctx.bitmap
+                canvas.state.bitmap = ctx.bitmap
 
-                // Handle zoom result
                 if case .zoom(let percent) = ctx.result {
-                    self.state.zoom = percent
+                    canvas.state.zoom = percent
                     tc.options.currentZoom = percent
-                    self.state.dirty = false
-                // Handle pick-color result
-                } else if case .pickColor(let fg, let r, let g, let b) = ctx.result {
-                    let hex = String(format: "#%02X%02X%02X", r, g, b)
+                    canvas.state.dirty = false
+                } else if case .pickColor(let fg, let r, let g, let pb) = ctx.result {
+                    let hex = String(format: "#%02X%02X%02X", r, g, pb)
                     if fg {
-                        self.colorState?.setForeground(hex)
+                        canvas.colorState?.setForeground(hex)
                     } else {
-                        self.colorState?.setBackground(hex)
+                        canvas.colorState?.setBackground(hex)
                     }
-                    self.state.dirty = false
+                    canvas.state.dirty = false
                 } else {
-                    self.state.pushUndo()
-                    self.state.dirty = true
+                    canvas.state.pushUndo()
+                    canvas.state.dirty = true
                 }
 
-                self.canvasView.bitmap = self.state.bitmap
-                self.canvasView.needsDisplay = true
+                canvas.canvasView.bitmap = canvas.state.bitmap
+                canvas.canvasView.needsDisplay = true
+
+                if let body = try? JSONEncoder().encode(["ok": true]) {
+                    result = .ok(json: body)
+                } else {
+                    result = .internalServerError("JSON encode failed")
+                }
             }
-            let json = try? JSONEncoder().encode(["ok": true])
-            return .ok(json: json ?? Data())
+            return result ?? .internalServerError("no response")
         }
 
         // POST /canvas/stroke {"points":[[x,y],...],"button":"left"}
-        router.post(prefix: Self.routePrefix, path: "/stroke") { [weak self] req in
-            guard let self else { return .notFound(req) }
-            guard let tc = self.toolController else { return .internalServerError("no tool controller") }
-            struct Body: Decodable { let points: [[Int]]; let button: String }
-            guard let b = try? JSONDecoder().decode(Body.self, from: req.body) else {
-                return .badRequest("body must be {\"points\":[[x,y],...],\"button\":\"left|right\"}")
-            }
-            guard b.points.allSatisfy({ $0.count == 2 }) else {
-                return .badRequest("each point must be [x,y]")
-            }
-            guard !b.points.isEmpty else {
-                let json = try? JSONEncoder().encode(["ok": true])
-                return .ok(json: json ?? Data())
-            }
-
-            let pts = b.points.map { NSPoint(x: CGFloat($0[0]), y: CGFloat($0[1])) }
-
-            let effectiveFg = b.button == "right" ? self.bgColor() : self.fgColor()
-            let toolButton: ToolButton = b.button == "right" ? .secondary : .primary
-
+        router.post(prefix: Self.routePrefix, path: "/stroke") { req in
+            var result: TestAPIResponse?
             DispatchQueue.main.sync {
+                guard let canvas = Self.findCanvas(windowId: req.query["windowId"]) else {
+                    result = .notFound(req)
+                    return
+                }
+                guard let tc = canvas.toolController else {
+                    result = .internalServerError("no tool controller")
+                    return
+                }
+                struct Body: Decodable { let points: [[Int]]; let button: String }
+                guard let b = try? JSONDecoder().decode(Body.self, from: req.body) else {
+                    result = .badRequest("body must be {\"points\":[[x,y],...],\"button\":\"left|right\"}")
+                    return
+                }
+                guard b.points.allSatisfy({ $0.count == 2 }) else {
+                    result = .badRequest("each point must be [x,y]")
+                    return
+                }
+                guard !b.points.isEmpty else {
+                    if let body = try? JSONEncoder().encode(["ok": true]) {
+                        result = .ok(json: body)
+                    } else {
+                        result = .internalServerError("JSON encode failed")
+                    }
+                    return
+                }
+
+                let pts = b.points.map { NSPoint(x: CGFloat($0[0]), y: CGFloat($0[1])) }
+
+                let effectiveFg = b.button == "right" ? canvas.bgColor() : canvas.fgColor()
+                let toolButton: ToolButton = b.button == "right" ? .secondary : .primary
+
                 var ctx = ToolContext(
-                    bitmap: self.state.bitmap,
+                    bitmap: canvas.state.bitmap,
                     fgColor: effectiveFg,
-                    bgColor: self.bgColor(),
+                    bgColor: canvas.bgColor(),
                     options: tc.options,
                     button: toolButton
                 )
 
-                // pointerDown on first point
                 tc.activeTool.pointerDown(&ctx, pts[0])
 
-                // Interpolate between consecutive points for gap-free stroking
                 if pts.count > 1 {
                     for i in 0..<(pts.count - 1) {
-                        let interpolated = self.interpolatePoints(pts[i], pts[i + 1])
-                        // Skip first point of each segment since it was already drawn by previous segment's last point
+                        let interpolated = canvas.interpolatePoints(pts[i], pts[i + 1])
                         for j in 1..<interpolated.count {
                             tc.activeTool.pointerDragged(&ctx, interpolated[j])
                         }
                     }
                 }
 
-                // pointerUp on last point
                 tc.activeTool.pointerUp(&ctx, pts.last!)
 
-                self.state.bitmap = ctx.bitmap
+                canvas.state.bitmap = ctx.bitmap
                 if case .zoom(let percent) = ctx.result {
-                    self.state.zoom = percent
-                    self.toolController?.options.currentZoom = percent
-                    self.state.dirty = false
+                    canvas.state.zoom = percent
+                    canvas.toolController?.options.currentZoom = percent
+                    canvas.state.dirty = false
                 } else {
-                    self.state.pushUndo()
-                    self.state.dirty = true
+                    canvas.state.pushUndo()
+                    canvas.state.dirty = true
                 }
-                self.canvasView.bitmap = self.state.bitmap
-                self.canvasView.zoom = self.state.zoom
-                self.canvasView.needsDisplay = true
-            }
+                canvas.canvasView.bitmap = canvas.state.bitmap
+                canvas.canvasView.zoom = canvas.state.zoom
+                canvas.canvasView.needsDisplay = true
 
-            let json = try? JSONEncoder().encode(["ok": true])
-            return .ok(json: json ?? Data())
+                if let body = try? JSONEncoder().encode(["ok": true]) {
+                    result = .ok(json: body)
+                } else {
+                    result = .internalServerError("JSON encode failed")
+                }
+            }
+            return result ?? .internalServerError("no response")
         }
+    }
+
+    // MARK: - Static helpers for multi-window canvas lookup (call only on main thread)
+
+    static func findCanvas(windowId: String?) -> CanvasController? {
+        if let wid = windowId, !wid.isEmpty {
+            if let win = TestAPIWindowStore.shared.window(id: wid) as? PigmentWindow {
+                return win.canvasController
+            }
+            return nil
+        }
+        // No windowId: prefer the most recently opened document window
+        if let lastDoc = DocumentController.latestDocWindow() {
+            return lastDoc
+        }
+        // Fall back to TestAPIWindowStore (handles early startup and explicit registrations)
+        if let win = TestAPIWindowStore.shared.window(id: nil) as? PigmentWindow {
+            return win.canvasController
+        }
+        // Last resort: iterate windows
+        for win in NSApp.windows {
+            if let pw = win as? PigmentWindow {
+                return pw.canvasController
+            }
+        }
+        return nil
     }
 }

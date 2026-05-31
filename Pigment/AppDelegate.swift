@@ -13,7 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         MenuBuilder.build()
         _ = menuController.view // force viewDidLoad to register routes
-        appController.startTestAPIIfNeeded()
 
         // Instantiate ColorController so its routes are registered before tests call /color/set
         let cc = ColorController(colorState: colorState)
@@ -25,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Instantiate DocumentController so its routes are registered
         let dc = DocumentController()
+        dc.toolController = toolController
+        dc.colorState = colorState
         _ = dc.view
         documentController = dc
 
@@ -35,6 +36,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pigmentWindow.toolController = toolController
             pigmentWindow.colorState = colorState
         }
+
+        // Start test API server LAST so window is ready before port file is written
+        appController.startTestAPIIfNeeded()
     }
 
     @objc func undo(_ sender: Any?) {
