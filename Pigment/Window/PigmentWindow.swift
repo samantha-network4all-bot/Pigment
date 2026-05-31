@@ -2,6 +2,8 @@ import AppKit
 
 final class PigmentWindow: NSWindow {
 
+    var filePath: String?
+
     private lazy var rootView: RootView = {
         let v = RootView(frame: NSRect(origin: .zero, size: Metrics.defaultWindowSize))
         return v

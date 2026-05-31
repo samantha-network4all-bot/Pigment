@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let toolController = ToolController()
     private let colorState = ColorState()
     private var colorController: ColorController?
+    private var documentController: DocumentController?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         MenuBuilder.build()
@@ -21,6 +22,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Force-load tool controller so its viewDidLoad fires and registers routes
         _ = toolController.view
+
+        // Instantiate DocumentController so its routes are registered
+        let dc = DocumentController()
+        _ = dc.view
+        documentController = dc
+
         windowController.showWindow(nil)
 
         // Wire tool controller and color state into the window's canvas
