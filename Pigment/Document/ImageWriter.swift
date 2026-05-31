@@ -2,35 +2,43 @@ import AppKit
 
 enum ImageWriter {
     enum Format: String { case png, jpeg, bmp }
+    enum Error: Swift.Error { case unsupportedFormat(String) }
 
-    static func write(bitmap: Bitmap, format: String, path: String) -> Bool {
-        guard let bmpFmt = Format(rawValue: format) else { return false }
+    static func write(bitmap: Bitmap, format: String, path: String) throws {
+        guard let bmpFmt = Format(rawValue: format) else {
+            throw Error.unsupportedFormat(format)
+        }
         let w = bitmap.width
         let h = bitmap.height
-        guard let rep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: w,
-            pixelsHigh: h,
-            bitsPerSample: 8,
-            samplesPerPixel: 3,
-            hasAlpha: false,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: w * 3,
-            bitsPerPixel: 24
-        ) else { return false }
-
-        guard let dst = rep.bitmapData else { return false }
+        // Build raw RGB data matching the bitmap exactly
+        var rgbData = [UInt8](repeating: 0, count: w * h * 3)
         for y in 0..<h {
             for x in 0..<w {
                 let p = bitmap[x, y]
-                let idx = y * rep.bytesPerRow + x * 3
-                dst[idx]     = p.r
-                dst[idx + 1] = p.g
-                dst[idx + 2] = p.b
+                let idx = (y * w + x) * 3
+                rgbData[idx]     = p.r
+                rgbData[idx + 1] = p.g
+                rgbData[idx + 2] = p.b
             }
         }
-
+        let data = Data(rgbData)
+        guard let provider = CGDataProvider(data: data as CFData),
+              let cgImage = CGImage(
+                width: w,
+                height: h,
+                bitsPerComponent: 8,
+                bitsPerPixel: 24,
+                bytesPerRow: w * 3,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: 0),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else {
+            throw NSError(domain: "ImageWriter", code: 1, userInfo: [NSLocalizedDescriptionKey: "CGImage creation failed"])
+        }
+        let rep = NSBitmapImageRep(cgImage: cgImage)
         let fileType: NSBitmapImageRep.FileType
         switch bmpFmt {
         case .png:  fileType = .png
@@ -38,7 +46,9 @@ enum ImageWriter {
         case .bmp:  fileType = .bmp
         }
         let props: [NSBitmapImageRep.PropertyKey: Any] = bmpFmt == .jpeg ? [.compressionFactor: 0.9] : [:]
-        guard let data = rep.representation(using: fileType, properties: props) else { return false }
-        return (data as NSData).write(toFile: path, atomically: true)
+        guard let outData = rep.representation(using: fileType, properties: props) else {
+            throw NSError(domain: "ImageWriter", code: 2, userInfo: [NSLocalizedDescriptionKey: "representation failed"])
+        }
+        (outData as NSData).write(toFile: path, atomically: true)
     }
 }

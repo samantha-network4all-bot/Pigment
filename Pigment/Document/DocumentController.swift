@@ -79,43 +79,37 @@ extension DocumentController: TestAPIControllerRoutes {
         router.post(prefix: Self.routePrefix, path: "/save") { [weak self] req in
             guard let self = self else { return .notFound(req) }
 
-            struct Body: Decodable {
+            struct SaveBody: Decodable {
                 let windowId: String?
                 let path: String
                 let format: String
             }
-            guard let b = try? JSONDecoder().decode(Body.self, from: req.body) else {
+            guard let b = try? JSONDecoder().decode(SaveBody.self, from: req.body) else {
                 return .badRequest("body must be {\"path\":\"/abs/x.png\",\"format\":\"png|jpeg|bmp\"}")
-            }
-
-            guard ImageWriter.Format(rawValue: b.format) != nil else {
-                return .badRequest("unsupported format: \(b.format)")
             }
 
             var result: TestAPIResponse?
             DispatchQueue.main.sync {
                 let targetCanvas = CanvasController.findCanvas(windowId: b.windowId)
-
                 guard let canvas = targetCanvas else {
                     result = .internalServerError("no canvas")
                     return
                 }
-
-                let ok = ImageWriter.write(bitmap: canvas.state.bitmap, format: b.format, path: b.path)
-                if ok {
+                do {
+                    try ImageWriter.write(bitmap: canvas.state.bitmap, format: b.format, path: b.path)
                     canvas.state.dirty = false
                     canvas.state.filePath = b.path
-                    if let pw = (NSApp.keyWindow ?? NSApp.windows.first) as? PigmentWindow {
+                    if let cgWin = (NSApp.keyWindow ?? NSApp.windows.first) as? PigmentWindow {
                         let fileName = URL(fileURLWithPath: b.path).lastPathComponent
-                        pw.title = "\(fileName) - Pigment"
+                        cgWin.title = "\(fileName) - Pigment"
                     }
-                    if let body = try? JSONEncoder().encode(["ok": true]) {
-                        result = .ok(json: body)
-                    } else {
-                        result = .internalServerError("JSON encode failed")
-                    }
-                } else {
-                    result = .internalServerError("write failed")
+                    let body = try? JSONEncoder().encode(["ok": true])
+                    result = .ok(json: body ?? Data())
+                } catch ImageWriter.Error.unsupportedFormat(let fmt) {
+                    let msg = "unsupported format: \(fmt)"
+                    result = .ok(json: Data("{\"error\":\"\(msg)\"}".utf8))
+                } catch {
+                    result = .internalServerError(error.localizedDescription)
                 }
             }
             return result ?? .internalServerError("no response")
@@ -124,16 +118,16 @@ extension DocumentController: TestAPIControllerRoutes {
         router.post(prefix: Self.routePrefix, path: "/open") { [weak self] req in
             guard let self = self else { return .notFound(req) }
 
-            struct Body: Decodable {
+            struct OpenBody: Decodable {
                 let path: String
             }
-            guard let b = try? JSONDecoder().decode(Body.self, from: req.body) else {
+            guard let b = try? JSONDecoder().decode(OpenBody.self, from: req.body) else {
                 return .badRequest("body must be {\"path\":\"/abs/x.png\"}")
             }
 
-            // Read from disk on background thread before dispatching to main
             guard let bitmap = ImageReader.read(from: b.path) else {
-                return .badRequest("could not read image at path: \(b.path)")
+                let msg = "could not read image at path: \(b.path)"
+                return .ok(json: Data("{\"error\":\"\(msg)\"}".utf8))
             }
 
             var windowId = ""
